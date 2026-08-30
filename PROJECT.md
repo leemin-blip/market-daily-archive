@@ -103,7 +103,7 @@ market-daily/
 - [x] 完成本地严格构建验证
 - [x] 用户确认 GitHub 账号、仓库名、可见性和 Git author
 - [x] 使用确认的 Git author 创建本地初始提交
-- [ ] 用户在 GitHub 创建 Public 仓库 `leemin-blip/market-daily-archive`
+- [x] 用户在 GitHub 创建 Public 仓库 `leemin-blip/market-daily-archive`
 - [ ] 添加目标远程并推送 `main`
 - [ ] 在 GitHub 仓库中确认 Pages 首次部署成功
 
@@ -154,7 +154,7 @@ market-daily/
 
 ## 9. Current Status
 
-当前阶段：**V1 本地实现完成 / 等待创建目标 GitHub 仓库**
+当前阶段：**V1 / 首次推送与 Pages 部署**
 
 已完成：
 
@@ -172,10 +172,11 @@ market-daily/
 - 完成本地敏感文件名与常见 Key / Token 格式扫描，未发现命中。
 - 加强 `.gitignore` 并建立 `SECURITY.md`，明确公开仓库的凭证管理规则。
 - 使用 `leemin-blip` 和确认的 GitHub noreply 邮箱创建本地初始提交。
+- 只读确认目标 GitHub 仓库为 Public、0 KB 且没有远程 refs，可安全执行首次推送。
 
-下一步：用户先在 GitHub 创建空的 Public 仓库 `leemin-blip/market-daily-archive`；确认创建后，再添加远程、推送 `main` 并观察 GitHub Pages 首次部署结果。
+下一步：添加目标仓库为 `origin`、推送 `main` 并观察 GitHub Pages 首次部署结果。
 
-阻塞项：截至 2026-08-30，目标公开仓库 API 返回 `404`，尚无可绑定的 Public 仓库；当前环境也未安装 GitHub CLI。根据用户要求，不由本任务擅自创建仓库。
+阻塞项：无。目标仓库已由用户创建并确认为空仓库。
 
 ## 10. Change Log
 
@@ -193,3 +194,4 @@ market-daily/
 - 用户确认 GitHub 目标、Public 可见性与 Git author；只读检查显示目标公开仓库尚不存在。
 - 扫描本地文件未发现敏感凭证，并补充公开仓库安全规则与忽略项。
 - 严格构建和提交前安全检查通过，创建本地 V1 初始提交 `5bb3f74`。
+- 用户创建目标 Public 仓库；只读验证确认仓库为空，不会覆盖任何远程内容。
