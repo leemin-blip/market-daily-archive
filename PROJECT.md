@@ -102,6 +102,7 @@ market-daily/
 - [x] 配置 GitHub Actions 自动部署
 - [x] 完成本地严格构建验证
 - [x] 用户确认 GitHub 账号、仓库名、可见性和 Git author
+- [x] 使用确认的 Git author 创建本地初始提交
 - [ ] 用户在 GitHub 创建 Public 仓库 `leemin-blip/market-daily-archive`
 - [ ] 添加目标远程并推送 `main`
 - [ ] 在 GitHub 仓库中确认 Pages 首次部署成功
@@ -170,6 +171,7 @@ market-daily/
 - 确认目标为 Public 仓库 `leemin-blip/market-daily-archive`。
 - 完成本地敏感文件名与常见 Key / Token 格式扫描，未发现命中。
 - 加强 `.gitignore` 并建立 `SECURITY.md`，明确公开仓库的凭证管理规则。
+- 使用 `leemin-blip` 和确认的 GitHub noreply 邮箱创建本地初始提交。
 
 下一步：用户先在 GitHub 创建空的 Public 仓库 `leemin-blip/market-daily-archive`；确认创建后，再添加远程、推送 `main` 并观察 GitHub Pages 首次部署结果。
 
@@ -190,3 +192,4 @@ market-daily/
 - 完成配置语法、生成页面和中英文搜索索引验证；V1 本地实现完成。
 - 用户确认 GitHub 目标、Public 可见性与 Git author；只读检查显示目标公开仓库尚不存在。
 - 扫描本地文件未发现敏感凭证，并补充公开仓库安全规则与忽略项。
+- 严格构建和提交前安全检查通过，创建本地 V1 初始提交 `5bb3f74`。
