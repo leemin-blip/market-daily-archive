@@ -4,6 +4,10 @@
 
 项目设计、当前进度与后续路线请查看 [PROJECT.md](PROJECT.md)。
 
+## 在线网站
+
+[https://leemin-blip.github.io/market-daily-archive/](https://leemin-blip.github.io/market-daily-archive/)
+
 ## 本地预览
 
 ```bash

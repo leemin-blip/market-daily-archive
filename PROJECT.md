@@ -104,8 +104,8 @@ market-daily/
 - [x] 用户确认 GitHub 账号、仓库名、可见性和 Git author
 - [x] 使用确认的 Git author 创建本地初始提交
 - [x] 用户在 GitHub 创建 Public 仓库 `leemin-blip/market-daily-archive`
-- [ ] 添加目标远程并推送 `main`
-- [ ] 在 GitHub 仓库中确认 Pages 首次部署成功
+- [x] 添加目标远程并推送 `main`
+- [x] 在 GitHub 仓库中确认 Pages 首次部署成功
 
 ### V2 — 日报自动进入档案
 
@@ -154,7 +154,7 @@ market-daily/
 
 ## 9. Current Status
 
-当前阶段：**V1 / 首次推送与 Pages 部署**
+当前阶段：**V1 完成**
 
 已完成：
 
@@ -176,10 +176,15 @@ market-daily/
 - 已将 `origin` 设置为 `https://github.com/leemin-blip/market-daily-archive.git`，并确认 GitHub CLI 当前登录账号为 `leemin-blip`。
 - 原 OAuth Token 有 `repo` 权限但缺少 `workflow` scope；GitHub 因此拒绝包含 `.github/workflows/deploy-pages.yml` 的推送，远程仓库未被修改。
 - 授权刷新后旧 Token 已失效，但新 Token 未成功写回自定义 `GH_CONFIG_DIR`；目前需要对该目录完成一次完整 `gh auth login`。
+- 完成 GitHub CLI 重新登录并获得 `repo` 与 `workflow` scope，通过 macOS Keychain 安全提供 Git 凭据。
+- 将完整 `main` 历史推送至 `leemin-blip/market-daily-archive`。
+- 为目标仓库启用 GitHub Pages，发布源设为 GitHub Actions workflow，并强制 HTTPS。
+- GitHub Actions 构建与部署全部成功；公网首页和搜索索引均返回 HTTP 200。
+- 正式网站：<https://leemin-blip.github.io/market-daily-archive/>
 
-下一步：用户在本机对 `/Users/lantolee/.local/config/gh` 完成 GitHub CLI 重新登录并授予 `workflow` scope，然后推送 `main` 并观察 GitHub Pages 首次部署结果。
+下一步：用正式市场日报替换 `2026-08-30` 结构示例，并开始设计 V2 的日报自动写入与导航维护流程。
 
-阻塞项：自定义 GitHub CLI 配置中的 Token 当前无效。当前运行环境访问 GitHub 设备授权接口超时，需要用户在自己的终端完成一次完整登录。
+阻塞项：无。
 
 ## 10. Change Log
 
@@ -201,3 +206,7 @@ market-daily/
 - 添加正确的 `origin` 后尝试首次推送；HTTPS 无登录凭据，SSH 无可用公钥，推送安全停止且远程仍为空。
 - 找到用户安装的 GitHub CLI 2.98.0 并确认已登录 `leemin-blip`；推送因缺少 `workflow` scope 被 GitHub 拒绝，设备授权刷新因当前环境网络超时未完成。
 - 用户批准 `workflow` 授权后，旧 Token 已失效但新凭据未写回；确认默认配置为空，必须继续使用自定义 `GH_CONFIG_DIR` 重新登录。
+- 完成 GitHub CLI 重新登录；确认凭据保存在 macOS Keychain，具备 `repo` 与 `workflow` scope。
+- 首次推送 `main` 成功。
+- 首次部署发现 Pages 尚未启用；通过 GitHub Pages API 将发布源设为 `workflow` 后重跑成功。
+- 验证公网首页、全文搜索索引和 HTTPS 网站地址；V1 完成。

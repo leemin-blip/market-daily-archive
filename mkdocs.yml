@@ -1,5 +1,6 @@
 site_name: Market Daily Archive
 site_description: 个人金融市场日报档案库
+site_url: https://leemin-blip.github.io/market-daily-archive/
 docs_dir: docs
 site_dir: site
 use_directory_urls: true
