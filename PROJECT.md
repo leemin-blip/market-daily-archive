@@ -173,10 +173,11 @@ market-daily/
 - 加强 `.gitignore` 并建立 `SECURITY.md`，明确公开仓库的凭证管理规则。
 - 使用 `leemin-blip` 和确认的 GitHub noreply 邮箱创建本地初始提交。
 - 只读确认目标 GitHub 仓库为 Public、0 KB 且没有远程 refs，可安全执行首次推送。
+- 已将 `origin` 设置为 `https://github.com/leemin-blip/market-daily-archive.git`；HTTPS 与 SSH 推送均因本机尚未配置 GitHub 身份而停止，远程仓库未被修改。
 
-下一步：添加目标仓库为 `origin`、推送 `main` 并观察 GitHub Pages 首次部署结果。
+下一步：用户在本机完成 GitHub CLI / HTTPS 或 SSH 登录后，推送 `main` 并观察 GitHub Pages 首次部署结果。
 
-阻塞项：无。目标仓库已由用户创建并确认为空仓库。
+阻塞项：本机没有 GitHub HTTPS 凭据，也没有可用于 GitHub 的 SSH 公钥；在不处理或保存明文 Token 的前提下无法执行首次推送。
 
 ## 10. Change Log
 
@@ -195,3 +196,4 @@ market-daily/
 - 扫描本地文件未发现敏感凭证，并补充公开仓库安全规则与忽略项。
 - 严格构建和提交前安全检查通过，创建本地 V1 初始提交 `5bb3f74`。
 - 用户创建目标 Public 仓库；只读验证确认仓库为空，不会覆盖任何远程内容。
+- 添加正确的 `origin` 后尝试首次推送；HTTPS 无登录凭据，SSH 无可用公钥，推送安全停止且远程仍为空。
