@@ -1,0 +1,71 @@
+site_name: Market Daily Archive
+site_description: 个人金融市场日报档案库
+docs_dir: docs
+site_dir: site
+use_directory_urls: true
+strict: true
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - navigation.path
+    - navigation.top
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: 切换至深色模式
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: 切换至浅色模式
+
+plugins:
+  - search:
+      lang:
+        - zh
+        - en
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - 首页: index.md
+  - 日报档案:
+      - archive.md
+      - "2026":
+          - 2026/index.md
+          - "08 月":
+              - 2026/08/index.md
+              - "2026-08-30": 2026/08/2026-08-30.md
+  - 专题:
+      - topics/index.md
+  - 统计:
+      - statistics/index.md
+  - 维护:
+      - 日报模板: maintenance/daily-template.md
+
+copyright: Copyright &copy; 2026 Market Daily Archive
