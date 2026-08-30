@@ -27,6 +27,9 @@ command -v python3 >/dev/null || fail "python3 is required"
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || fail "not inside a Git repository"
 cd "$repo_root"
 
+python3 scripts/validate_daily.py --date "$report_date" --input "$input_path" \
+  || fail "generated report failed the publish quality gate; nothing was published"
+
 current_branch=$(git branch --show-current)
 [[ "$current_branch" == "main" ]] || fail "expected branch main, found $current_branch"
 

@@ -27,7 +27,17 @@ mkdocs build --strict
 
 ## V2 自动入库
 
-仓库提供确定性的日报入库与发布工具：
+正式日报生成规则保存在 [`prompts/daily_market_report.md`](prompts/daily_market_report.md)。任务每天跟随设备本地时钟 08:00 运行；当前设备为 Asia/Shanghai，与 SGT 同为 UTC+8。日报日期仍以 Asia/Singapore 为准。
+
+发布前先执行 fail-closed 完整性校验：
+
+```bash
+python3 scripts/validate_daily.py \
+  --date YYYY-MM-DD \
+  --input inbox/YYYY-MM-DD.md
+```
+
+校验通过后，仓库提供确定性的日报入库与发布工具：
 
 ```bash
 python3 scripts/import_daily.py \

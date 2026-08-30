@@ -53,7 +53,7 @@ GitHub Pages 阅读
 | 托管 | GitHub Pages | 公开或私有可访问的网站 |
 | 日报入库 | Python 3 标准库 | 校验、去重、写入与导航生成 |
 | 发布编排 | Bash / Git / GitHub CLI / curl | 构建、提交、推送与端到端验证 |
-| 任务调度 | ChatGPT 桌面端本地项目定时任务 | 生成日报并调用仓库工具；待接入真实定时任务 |
+| 任务调度 | ChatGPT 桌面端当前任务 heartbeat | 每天跟随设备本地时钟 08:00 运行；日报日期以 Asia/Singapore 为准 |
 
 ## 4. 目标目录结构
 
@@ -65,11 +65,15 @@ market-daily/
 ├── requirements.txt
 ├── mkdocs.yml
 ├── inbox/                     # Git 忽略的日报输入暂存目录
+├── prompts/
+│   └── daily_market_report.md
 ├── scripts/
 │   ├── import_daily.py
-│   └── publish_daily.sh
+│   ├── publish_daily.sh
+│   └── validate_daily.py
 ├── tests/
-│   └── test_import_daily.py
+│   ├── test_import_daily.py
+│   └── test_validate_daily.py
 ├── docs/
 │   ├── index.md
 │   ├── archive.md
@@ -109,6 +113,9 @@ market-daily/
 - 自动入库要求首个 H1 包含同一 ISO 日期，且正文至少保留一个 HTTPS Markdown 来源链接。
 - 新日报由入库工具同步加入 `mkdocs.yml`、首页、对应年/月索引和总档案页；自动生成区块不手工修改。
 - 同日期相同内容可安全重复运行；同日期不同内容必须拒绝覆盖并转人工检查。
+- 正式 Master Prompt 位于 `prompts/daily_market_report.md`，普通日报运行不得自行修改。
+- 每篇自动日报必须声明 `report_type: trading_day` 或 `report_type: market_closed`，并在任何 Git 操作前通过 fail-closed 完整性校验。
+- 单个非关键数据暂缺可以明确标注后继续；整篇为空、截断、日期错误或关键结构缺失必须停止发布。
 
 ## 6. Roadmap
 
@@ -135,11 +142,15 @@ market-daily/
 
 #### V2.1 — 自动入库
 
+- [x] 固定每天设备本地时钟 08:00、每周 7 天运行；日报日期使用 Asia/Singapore
+- [x] 将 Daily Market Report Master Prompt 纳入 Git 版本管理
+- [x] 创建 Active 的 `Market Daily Archive 日报入库` 桌面端任务
 - [x] 自动创建 `docs/YYYY/MM/YYYY-MM-DD.md`
 - [x] 自动维护首页、总档案、年/月索引与 MkDocs 导航
 - [x] 防止同一天不同内容重复导入，并支持相同内容幂等重跑
 - [x] 保留日报标题、正文结构和来源链接
-- [ ] 接入 ChatGPT 桌面端定时任务并完成首次真实无人值守入库
+- [x] 增加发布前 fail-closed 完整性与来源校验
+- [ ] 完成首次真实无人值守入库验收
 
 #### V2.2 — 自动发布
 
@@ -193,7 +204,21 @@ market-daily/
 - **Decision**：使用 ChatGPT 桌面端本地项目定时任务生成日报并写入 Git 忽略的 `inbox/`，再由仓库内的 Python 入库器和 Bash 发布脚本完成文件、导航、Git 与 Pages 操作；不假设网页端 ChatGPT 任务可以直接写本机或 GitHub。
 - **Reason**：OpenAI 官方说明网页端定时任务不能直接操作本机目录，而桌面端项目级任务可以在本地项目中运行。把内容生成与确定性仓库操作分离，可以少依赖、避免仓库凭证、支持幂等重跑和逐步恢复。
 - **Date**：2026-08-30
-- **Impact**：电脑和 ChatGPT 桌面应用需在运行时保持可用，任务需获得最小必要的工作区与 GitHub 网络权限；调度接入前必须确认日报时间和提示词。未来月报可以复用标准化日期文件，但在每日链路稳定前不得开发。
+- **Impact**：电脑和 ChatGPT 桌面应用需在运行时保持可用，任务需获得最小必要的工作区与 GitHub 网络权限；普通运行必须读取版本化 Master Prompt。未来月报可以复用标准化日期文件，但在每日链路稳定前不得开发。
+
+### Decision 008 — 每天设备本地 08:00 调度，日报日期使用 Asia/Singapore
+
+- **Decision**：任务每周 7 天跟随设备本地时钟 08:00 运行，以执行时的 `Asia/Singapore` 日期命名日报；周末和美国休市日生成休市版。当前设备时区为 `Asia/Shanghai`，与 SGT 同为 UTC+8。
+- **Reason**：用户选择跟随设备本地时钟；当前实际执行时刻仍为 08:00 SGT，可在美国正常收盘后保留约 3–4 小时用于确认收盘数据、盘后新闻和媒体复盘，同时不受美国夏令时 / 冬令时切换影响。
+- **Date**：2026-08-30
+- **Impact**：所有日期判断、文件名和 H1 以新加坡日期为准；不得改用纽约时区。调度会跟随设备时区，如果设备以后离开 UTC+8，需要复核执行时刻。休市日仍执行，但不重复没有新交易产生的静态美股数据。
+
+### Decision 009 — 发布前采用 fail-closed 质量闸门并允许非关键数据降级
+
+- **Decision**：自动生成报告在任何入库或 Git 操作前必须通过 `scripts/validate_daily.py`；空白、截断、错日期、无效报告类型、关键结构或来源底线缺失均停止发布。单个非关键数据暂缺可明确标注后继续。
+- **Reason**：日报生成失败不能等同于发布残缺日报；同时，因单个暂不可得的数据点阻塞整篇报告会降低自动化可用性。
+- **Date**：2026-08-30
+- **Impact**：失败草稿只留在 Git 忽略的 `inbox/`，不会 commit 或 push；修复后可按同日期重试。Master Prompt 必须输出 `report_type` 和标准章节，普通日报不会因一个明确标注的非关键缺失而自动失败。
 
 ## 8. Project Maintenance Rules / 项目维护规则
 
@@ -283,16 +308,18 @@ market-daily/
 - V2.2 发布脚本已实现：严格构建、commit、push、远程 SHA 核对、Actions 等待和线上页面验证。
 - 入库器单元测试和现有日报幂等重跑验证已通过；V1 网站严格构建保持成功。
 - 自动入库架构与恢复方式已写入维护文档。
+- 正式任务已创建并处于 Active：`Market Daily Archive 日报入库`，每天跟随设备本地时钟 08:00、每周 7 天运行；当前与 08:00 SGT 相同。
+- Daily Market Report Master Prompt 已版本化保存于 `prompts/daily_market_report.md`。
+- 发布链路已增加 fail-closed 质量闸门，并用自动测试覆盖完整交易日、休市版、非关键数据暂缺及残缺报告拒绝。
 
 尚未完成：
 
-- 尚未配置实际的 ChatGPT 桌面端每日定时任务，因此当前是“可手动触发的完整自动链路”，还不是无人值守每日运行。
 - 尚未完成首次真实无人值守入库与发布验收。
 - V2.3 月报未开始。
 
-下一步：确认每日生成时间及沿用的 ChatGPT 市场日报提示词，在本地项目中创建桌面端定时任务；完成首次真实无人值守入库、发布和线上验证后，观察数次运行稳定性。暂不开发月报。
+下一步：在下一个设备本地 08:00（当前等同 08:00 SGT）完成首次真实无人值守入库、发布和线上验证，随后观察数次运行稳定性。暂不开发月报。
 
-阻塞项：定时任务的执行时间与最终日报提示词需要用户确认；代码链路无已知阻塞。
+阻塞项：无已知配置或代码阻塞；首次运行仍依赖电脑和 ChatGPT 桌面应用保持运行，以及既有工作区和 GitHub 权限可用。
 
 ## 10. Change Log
 
@@ -328,3 +355,7 @@ market-daily/
 - 完成 V2.1 入库器：自动日期路径、首页与年/月/日导航、来源保留、幂等重跑和重复内容保护。
 - 完成 V2.2 发布脚本：严格构建、commit、push、远程 SHA、GitHub Pages workflow 与线上页面验证，并记录失败恢复路径。
 - 增加入库器自动测试与 V2 操作文档；月报继续延后至每日链路稳定后。
+- 固定每天跟随设备本地时钟 08:00、每周 7 天运行；当前设备为 Asia/Shanghai，与 08:00 SGT 相同，文件名和标题日期继续使用新加坡日期。
+- 将正式 Daily Market Report Master Prompt 保存为 `prompts/daily_market_report.md`，统一交易日、休市日、数据、叙事、观察事项、来源和 Markdown 输出规范。
+- 增加独立的 fail-closed 发布前质量闸门，区分“非关键数据暂缺”和“整篇生成失败”；残缺内容不会进入 Git。
+- 创建并激活 `Market Daily Archive 日报入库` 桌面端 heartbeat 任务；首次真实无人值守运行仍待验收。
