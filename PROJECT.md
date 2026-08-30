@@ -20,18 +20,26 @@ GitHub Pages 阅读
 
 ## 2. 已确认的范围
 
-### V1
+### V1 — Completed / Accepted
 
 - 每日一篇 Markdown 日报。
 - 年 / 月 / 日三级档案结构。
 - Material for MkDocs 书籍式导航。
 - 中英文全文搜索。
 - GitHub Actions 自动构建并部署到 GitHub Pages。
+- 首篇真实日报 `2026-08-30` 已完成线上阅读验收。
+
+### V2 – Automated Daily Ingestion
+
+核心目标：让每天生成的 ChatGPT 市场日报自动写入 Market Daily Archive，并完成可验证、可恢复、可重复执行的发布。
+
+- V2.1：自动创建日期文件并维护年 / 月 / 日导航与索引。
+- V2.2：自动构建、commit、push、部署并验证远程页面。
+- V2.3：月报；等待每日自动入库稳定运行后再开发。
 
 ### 暂不包含
 
-- 自动生成日报内容。
-- 从 ChatGPT 自动写入 GitHub。
+- V2.3 月报与月度市场回顾。
 - 数据库、知识图谱或 AI 问答。
 
 ## 3. 技术栈
@@ -43,6 +51,9 @@ GitHub Pages 阅读
 | 静态网站 | Material for MkDocs | 书籍式导航、搜索与主题 |
 | 自动化 | GitHub Actions | 构建与部署 |
 | 托管 | GitHub Pages | 公开或私有可访问的网站 |
+| 日报入库 | Python 3 标准库 | 校验、去重、写入与导航生成 |
+| 发布编排 | Bash / Git / GitHub CLI / curl | 构建、提交、推送与端到端验证 |
+| 任务调度 | ChatGPT 桌面端本地项目定时任务 | 生成日报并调用仓库工具；待接入真实定时任务 |
 
 ## 4. 目标目录结构
 
@@ -53,11 +64,18 @@ market-daily/
 ├── SECURITY.md
 ├── requirements.txt
 ├── mkdocs.yml
+├── inbox/                     # Git 忽略的日报输入暂存目录
+├── scripts/
+│   ├── import_daily.py
+│   └── publish_daily.sh
+├── tests/
+│   └── test_import_daily.py
 ├── docs/
 │   ├── index.md
 │   ├── archive.md
 │   ├── maintenance/
-│   │   └── daily-template.md
+│   │   ├── daily-template.md
+│   │   └── automated-ingestion.md
 │   ├── topics/
 │   │   └── index.md
 │   ├── statistics/
@@ -88,11 +106,13 @@ market-daily/
   - 重要市场新闻
   - Sources
 - 每条外部信息应尽可能保留原始来源链接。
-- 新日报同时加入 `mkdocs.yml` 导航、对应月份索引和总档案页。
+- 自动入库要求首个 H1 包含同一 ISO 日期，且正文至少保留一个 HTTPS Markdown 来源链接。
+- 新日报由入库工具同步加入 `mkdocs.yml`、首页、对应年/月索引和总档案页；自动生成区块不手工修改。
+- 同日期相同内容可安全重复运行；同日期不同内容必须拒绝覆盖并转人工检查。
 
 ## 6. Roadmap
 
-### V1 — 可用的日报网站
+### V1 — Completed / Accepted
 
 - [x] 检查工作区与现有仓库边界
 - [x] 初始化独立本地 Git 仓库
@@ -107,12 +127,30 @@ market-daily/
 - [x] 添加目标远程并推送 `main`
 - [x] 在 GitHub 仓库中确认 Pages 首次部署成功
 - [x] 导入并发布首篇正式日报 `2026-08-30`
+- [x] 完成首篇真实日报的页面、目录与阅读效果验收
 
-### V2 — 日报自动进入档案
+### V2 – Automated Daily Ingestion（In Progress）
 
-- [ ] ChatGPT 日报自动写入 GitHub
-- [ ] 自动维护导航与档案索引
-- [ ] 自动生成月报与月度市场回顾
+核心目标：让每天生成的 ChatGPT 市场日报自动写入 Market Daily Archive。
+
+#### V2.1 — 自动入库
+
+- [x] 自动创建 `docs/YYYY/MM/YYYY-MM-DD.md`
+- [x] 自动维护首页、总档案、年/月索引与 MkDocs 导航
+- [x] 防止同一天不同内容重复导入，并支持相同内容幂等重跑
+- [x] 保留日报标题、正文结构和来源链接
+- [ ] 接入 ChatGPT 桌面端定时任务并完成首次真实无人值守入库
+
+#### V2.2 — 自动发布
+
+- [x] 严格构建、自动 commit 与 push
+- [x] 核对本地与远程提交，等待 GitHub Pages workflow
+- [x] 验证最终线上日报页面并提供可恢复重跑路径
+- [ ] 完成首次真实无人值守发布验收
+
+#### V2.3 — 月报
+
+- [ ] 自动月报与月度市场回顾（每日自动入库稳定后再开发）
 
 ### V3 — 个人市场数据库
 
@@ -149,6 +187,13 @@ market-daily/
 - **Reason**：确保新的 ChatGPT / Work 会话可以快速恢复项目上下文，同时避免文件退化为重复 Git 历史的流水账。
 - **Date**：2026-08-30
 - **Impact**：所有项目开发工作开始前必须先读取本文件；项目级修改提交前必须检查是否需要同步更新；新增长期决策必须使用编号 Decision 记录。
+
+### Decision 007 — 桌面端本地定时任务编排确定性仓库工具
+
+- **Decision**：使用 ChatGPT 桌面端本地项目定时任务生成日报并写入 Git 忽略的 `inbox/`，再由仓库内的 Python 入库器和 Bash 发布脚本完成文件、导航、Git 与 Pages 操作；不假设网页端 ChatGPT 任务可以直接写本机或 GitHub。
+- **Reason**：OpenAI 官方说明网页端定时任务不能直接操作本机目录，而桌面端项目级任务可以在本地项目中运行。把内容生成与确定性仓库操作分离，可以少依赖、避免仓库凭证、支持幂等重跑和逐步恢复。
+- **Date**：2026-08-30
+- **Impact**：电脑和 ChatGPT 桌面应用需在运行时保持可用，任务需获得最小必要的工作区与 GitHub 网络权限；调度接入前必须确认日报时间和提示词。未来月报可以复用标准化日期文件，但在每日链路稳定前不得开发。
 
 ## 8. Project Maintenance Rules / 项目维护规则
 
@@ -229,41 +274,25 @@ market-daily/
 
 ## 9. Current Status
 
-当前阶段：**V1 完成，首篇真实日报阅读效果测试**
+当前阶段：**V2 – Automated Daily Ingestion**
 
 已完成：
 
-- 确认当前工作区为空且不是已有 Git 仓库，不会影响其他项目。
-- 确认本机未安装 GitHub CLI，尚未绑定任何远程仓库。
-- 初始化本地 Git 仓库并建立项目知识库。
-- 建立 2026 / 08 / 2026-08-30 的年、月、日书籍式目录。
-- 建立首页、总档案、专题、统计和日报模板页面。
-- 配置 Material for MkDocs 中文界面、中英文全文搜索、明暗主题与导航。
-- 配置 GitHub Actions 在 `main` 分支更新时严格构建并部署至 GitHub Pages。
-- 使用 Material for MkDocs 9.7.7 完成 `mkdocs build --strict` 验证。
-- 验证首页、档案页、年 / 月 / 日页面、日报模板和全文搜索索引均已生成。
-- 验证搜索索引包含 `美债`、`VIX`、`NVDA`、`WTI` 和 `日报模板`。
-- 确认目标为 Public 仓库 `leemin-blip/market-daily-archive`。
-- 完成本地敏感文件名与常见 Key / Token 格式扫描，未发现命中。
-- 加强 `.gitignore` 并建立 `SECURITY.md`，明确公开仓库的凭证管理规则。
-- 使用 `leemin-blip` 和确认的 GitHub noreply 邮箱创建本地初始提交。
-- 只读确认目标 GitHub 仓库为 Public、0 KB 且没有远程 refs，可安全执行首次推送。
-- 已将 `origin` 设置为 `https://github.com/leemin-blip/market-daily-archive.git`，并确认 GitHub CLI 当前登录账号为 `leemin-blip`。
-- 原 OAuth Token 有 `repo` 权限但缺少 `workflow` scope；GitHub 因此拒绝包含 `.github/workflows/deploy-pages.yml` 的推送，远程仓库未被修改。
-- 授权刷新后旧 Token 已失效，但新 Token 未成功写回自定义 `GH_CONFIG_DIR`；目前需要对该目录完成一次完整 `gh auth login`。
-- 完成 GitHub CLI 重新登录并获得 `repo` 与 `workflow` scope，通过 macOS Keychain 安全提供 Git 凭据。
-- 将完整 `main` 历史推送至 `leemin-blip/market-daily-archive`。
-- 为目标仓库启用 GitHub Pages，发布源设为 GitHub Actions workflow，并强制 HTTPS。
-- GitHub Actions 构建与部署全部成功；公网首页和搜索索引均返回 HTTP 200。
-- 正式网站：<https://leemin-blip.github.io/market-daily-archive/>
-- 将 `2026-08-30` 结构示例替换为首篇正式周末版美股市场日报。
-- 保留既定的深度分析与来源链接，并依据休市日规则聚焦利率、外汇、能源、资金流、欧洲风险和 AI 产业动态。
-- 同步更新首页、总档案、年度与月度索引；既有 `2026 → 08 月 → 2026-08-30` 导航保持有效。
-- 正式建立跨会话项目维护规则，并以 Decision 006 固定 `PROJECT.md` 的知识库定位、更新条件和决策记录格式。
+- V1 已完成并通过 `2026-08-30` 真实日报的页面、目录和阅读效果验收。
+- V2.1 确定性入库器已实现：日期校验、正确目录写入、正文与来源保留、导航生成和重复导入保护。
+- V2.2 发布脚本已实现：严格构建、commit、push、远程 SHA 核对、Actions 等待和线上页面验证。
+- 入库器单元测试和现有日报幂等重跑验证已通过；V1 网站严格构建保持成功。
+- 自动入库架构与恢复方式已写入维护文档。
 
-下一步：等待首篇正式日报的实际阅读反馈。按本轮范围要求，暂不开发日报自动写入、月报或其他 V2 / V3 功能。
+尚未完成：
 
-阻塞项：无。
+- 尚未配置实际的 ChatGPT 桌面端每日定时任务，因此当前是“可手动触发的完整自动链路”，还不是无人值守每日运行。
+- 尚未完成首次真实无人值守入库与发布验收。
+- V2.3 月报未开始。
+
+下一步：确认每日生成时间及沿用的 ChatGPT 市场日报提示词，在本地项目中创建桌面端定时任务；完成首次真实无人值守入库、发布和线上验证后，观察数次运行稳定性。暂不开发月报。
+
+阻塞项：定时任务的执行时间与最终日报提示词需要用户确认；代码链路无已知阻塞。
 
 ## 10. Change Log
 
@@ -294,3 +323,8 @@ market-daily/
 - 更新首页、总档案、2026 年索引和 08 月索引，正式日报可沿 `2026 → 08 月 → 2026-08-30` 打开。
 - 明确本轮仅测试一篇真实日报的阅读效果，不启动 V2 / V3 自动化、月报或其他扩展。
 - 建立完整的 Project Maintenance Rules，明确开发前读取、提交前检查、必须更新与通常不更新的边界，以及 Architecture Decision 的标准格式。
+- V1 首篇真实日报的页面、目录和阅读效果通过验收；V1 正式标记为 Completed / Accepted，项目进入 `V2 – Automated Daily Ingestion`。
+- 采用“ChatGPT 桌面端本地定时任务 + Git 忽略 inbox + 确定性仓库工具”架构，避免假设网页端任务能够直接操作本机或 GitHub。
+- 完成 V2.1 入库器：自动日期路径、首页与年/月/日导航、来源保留、幂等重跑和重复内容保护。
+- 完成 V2.2 发布脚本：严格构建、commit、push、远程 SHA、GitHub Pages workflow 与线上页面验证，并记录失败恢复路径。
+- 增加入库器自动测试与 V2 操作文档；月报继续延后至每日链路稳定后。

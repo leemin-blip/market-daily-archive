@@ -3,6 +3,7 @@
 __pycache__/
 site/
 .cache/
+inbox/
 
 # Never commit local configuration or credentials
 .env

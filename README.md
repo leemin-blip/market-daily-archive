@@ -25,9 +25,21 @@ mkdocs serve
 mkdocs build --strict
 ```
 
-## 新增日报
+## V2 自动入库
 
-1. 复制 `docs/maintenance/daily-template.md` 到 `docs/YYYY/MM/YYYY-MM-DD.md`。
-2. 完成日报内容并保留来源链接。
-3. 将日报加入对应月份索引、`docs/archive.md` 和 `mkdocs.yml` 导航。
-4. 运行严格构建检查后提交。
+仓库提供确定性的日报入库与发布工具：
+
+```bash
+python3 scripts/import_daily.py \
+  --date YYYY-MM-DD \
+  --input inbox/YYYY-MM-DD.md \
+  --summary "一行摘要"
+```
+
+完整的构建、提交、推送和 Pages 验证流程：
+
+```bash
+scripts/publish_daily.sh YYYY-MM-DD inbox/YYYY-MM-DD.md "一行摘要"
+```
+
+详细输入契约、重复导入保护和恢复方式见[自动入库说明](docs/maintenance/automated-ingestion.md)。

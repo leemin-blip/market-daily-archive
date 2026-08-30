@@ -57,16 +57,19 @@ nav:
   - 首页: index.md
   - 日报档案:
       - archive.md
+      # BEGIN AUTO-GENERATED DAILY NAV
       - "2026":
           - 2026/index.md
           - "08 月":
               - 2026/08/index.md
               - "2026-08-30": 2026/08/2026-08-30.md
+      # END AUTO-GENERATED DAILY NAV
   - 专题:
       - topics/index.md
   - 统计:
       - statistics/index.md
   - 维护:
       - 日报模板: maintenance/daily-template.md
+      - V2 自动入库: maintenance/automated-ingestion.md
 
 copyright: Copyright &copy; 2026 Market Daily Archive
