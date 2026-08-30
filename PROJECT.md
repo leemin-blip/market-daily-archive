@@ -100,15 +100,18 @@ market-daily/
 - 存放路径：`docs/YYYY/MM/YYYY-MM-DD.md`。
 - 日期标题使用 ISO 格式，避免跨地区歧义。
 - 固定栏目：
-  - 市场摘要
-  - 利率
-  - 波动率（VIX / VXN）
-  - 美股指数
-  - Magnificent Seven
-  - 半导体
-  - 商品（WTI / 黄金）
-  - 重要市场新闻
+  - 今日市场一句话
+  - 市场 Dashboard
+  - 美国国债、波动率与美国股市
+  - 商品与重要市场新闻
+  - 跨资产观察
+  - Market Narrative
+  - What to Watch
   - Sources
+- 正常交易日核心指标包括 2Y / 10Y / 30Y Treasury、2Y–10Y 美债利差、Fed Rate Expectations、VIX / VXN、五档文字风险状态、主要美股指数、Russell 2000、SOX、DXY、WTI 和 Gold。
+- 面向用户不得单独使用 `2s10s`；统一显示 `2Y–10Y 美债利差`。使用收益率曲线术语时必须同时用普通中文解释。
+- 风险状态必须使用 `很低 / 较低 / 中等 / 较高 / 很高` 明确表达，图标或颜色只能辅助，不使用伪精确风险分数。
+- 长期编辑原则：**核心指标每天记录，异常指标重点解释。** 正常波动留在 Dashboard，异常、背离或重大催化剂进入详细分析。
 - 每条外部信息应尽可能保留原始来源链接。
 - 自动入库要求首个 H1 包含同一 ISO 日期，且正文至少保留一个 HTTPS Markdown 来源链接。
 - 新日报由入库工具同步加入 `mkdocs.yml`、首页、对应年/月索引和总档案页；自动生成区块不手工修改。
@@ -150,6 +153,7 @@ market-daily/
 - [x] 防止同一天不同内容重复导入，并支持相同内容幂等重跑
 - [x] 保留日报标题、正文结构和来源链接
 - [x] 增加发布前 fail-closed 完整性与来源校验
+- [x] 在首次无人值守运行前完成正式日报模板、Master Prompt 1.1 与 Validator 定版
 - [ ] 完成首次真实无人值守入库验收
 
 #### V2.2 — 自动发布
@@ -219,6 +223,13 @@ market-daily/
 - **Reason**：日报生成失败不能等同于发布残缺日报；同时，因单个暂不可得的数据点阻塞整篇报告会降低自动化可用性。
 - **Date**：2026-08-30
 - **Impact**：失败草稿只留在 Git 忽略的 `inbox/`，不会 commit 或 push；修复后可按同日期重试。Master Prompt 必须输出 `report_type` 和标准章节，普通日报不会因一个明确标注的非关键缺失而自动失败。
+
+### Decision 010 — 核心指标每日记录，异常指标重点解释
+
+- **Decision**：正式 Dashboard 增加 30Y Treasury、DXY、Fed Rate Expectations 与 Russell 2000；面向用户将 `2s10s` 统一为 `2Y–10Y 美债利差`，增加五档文字风险状态和 `跨资产观察`。正常波动只做简洁记录，异常波动、资产背离或重大催化剂才进入详细分析。
+- **Reason**：让非专业读者能快速理解收益率曲线和风险状态，同时用 30Y、美元、Fed 定价和小盘股补足财政/期限溢价、跨资产传导与市场宽度观察；控制日报长度，提升信息密度。
+- **Date**：2026-08-30
+- **Impact**：Master Prompt、日报模板与 Validator 必须保持这些结构一致；曲线术语需附普通中文解释，风险不得仅用 emoji / 颜色表达。Bitcoin、信用利差、MOVE 与 USD/JPY 暂不列入每日核心 Dashboard，重大事件时可临时分析。
 
 ## 8. Project Maintenance Rules / 项目维护规则
 
@@ -311,6 +322,8 @@ market-daily/
 - 正式任务已创建并处于 Active：`Market Daily Archive 日报入库`，每天跟随设备本地时钟 08:00、每周 7 天运行；当前与 08:00 SGT 相同。
 - Daily Market Report Master Prompt 已版本化保存于 `prompts/daily_market_report.md`。
 - 发布链路已增加 fail-closed 质量闸门，并用自动测试覆盖完整交易日、休市版、非关键数据暂缺及残缺报告拒绝。
+- 首次无人值守运行前的日报模板已正式定版：Master Prompt 升级至 1.1，Validator 与维护模板同步增加 30Y、DXY、Fed Rate Expectations、Russell 2000、文字风险状态和跨资产观察。
+- `2026-08-30` 休市样板已按新版结构更新，并只补充有可靠来源支持的历史数据。
 
 尚未完成：
 
@@ -359,3 +372,5 @@ market-daily/
 - 将正式 Daily Market Report Master Prompt 保存为 `prompts/daily_market_report.md`，统一交易日、休市日、数据、叙事、观察事项、来源和 Markdown 输出规范。
 - 增加独立的 fail-closed 发布前质量闸门，区分“非关键数据暂缺”和“整篇生成失败”；残缺内容不会进入 Git。
 - 创建并激活 `Market Daily Archive 日报入库` 桌面端 heartbeat 任务；首次真实无人值守运行仍待验收。
+- 在首次 08:00 无人值守运行前完成正式日报模板定版：增加 30Y Treasury、DXY、Fed Rate Expectations、Russell 2000 和跨资产观察，将 `2s10s` 改为清晰的 `2Y–10Y 美债利差`，并要求五档文字风险状态。
+- 确立“核心指标每天记录，异常指标重点解释”的长期编辑原则；同步更新 Master Prompt 1.1、维护模板、Validator、测试与 `2026-08-30` 展示样板。

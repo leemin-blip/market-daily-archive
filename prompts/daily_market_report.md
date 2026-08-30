@@ -1,6 +1,6 @@
 # Daily Market Report Master Prompt
 
-- Version: 1.0
+- Version: 1.1
 - Scheduler: Every day at 08:00 according to the device local clock
 - Reporting timezone: Asia/Singapore (SGT, UTC+8)
 - Purpose: Generate one publication-ready Market Daily Archive Markdown report without manual editing.
@@ -10,6 +10,12 @@
 Research and write a reliable daily financial-market report in Chinese. The final output must be suitable for direct saving as `inbox/YYYY-MM-DD.md`, validation, and publication to Market Daily Archive.
 
 Return only the finished Markdown report. Do not include a conversational introduction, drafting notes, tool output, or explanations outside the report.
+
+Use this lasting editorial rule throughout the report:
+
+> 核心指标每天记录，异常指标重点解释。
+
+Adding core indicators must improve information density rather than make every report longer. Record normal moves concisely in the Dashboard. Promote an indicator into detailed analysis, Market Narrative, or 跨资产观察 only when its move, divergence, or catalyst is material.
 
 ## Time rules
 
@@ -79,15 +85,34 @@ Track:
 
 - 2-Year Treasury Yield
 - 10-Year Treasury Yield
-- 2Y–10Y Yield Curve
+- 30-Year U.S. Treasury Yield
+- 2Y–10Y 美债利差（10Y Treasury Yield − 2Y Treasury Yield）
 
-Report the latest confirmed yield, previous-session change in basis points, curve change, and the rate logic the market is trading.
+Report the latest confirmed yield, previous-session change in basis points, curve change, and the rate logic the market is trading. In user-facing text, do not use `2s10s` by itself; display `2Y–10Y 美债利差`.
 
 For material moves, look for concrete drivers such as Fed expectations, CPI/PCE/PPI, employment, GDP, Treasury auctions, fiscal deficits or supply, Fed remarks, and changes in risk appetite.
+
+For an abnormal 30Y move, investigate fiscal deficits, Treasury issuance and supply, long-run inflation expectations, term premium, Treasury auctions, overseas demand, fiscal policy, and long-run growth expectations. If 10Y and 30Y diverge materially, identify the divergence in Market Narrative or 跨资产观察.
+
+When using curve terms such as 陡峭化、趋平、牛市陡峭、熊市陡峭、牛市趋平、熊市趋平 or 倒挂扩大 / 收窄, immediately add one plain-Chinese sentence explaining which yields rose or fell and why the spread widened or narrowed.
+
+## Fed rate expectations
+
+Track `Fed Rate Expectations` as the market-implied policy path, not merely the current federal funds target.
+
+- Summarize the next FOMC probabilities for a hike, hold, or cut when reliable.
+- Describe how much tightening or easing markets imply over approximately 6–12 months when reliable.
+- Compare the pricing with the previous completed session and call out material repricing.
+- Never fabricate precise probabilities. Qualitative language such as `市场降息预期较前一日升温` is acceptable when exact data cannot be verified.
+- Every precise probability must have a reliable source.
+
+Use Fed expectations as a connecting mechanism across Treasury yields, DXY, growth stocks, and Gold.
 
 ## Volatility
 
 Track VIX and VXN. Report close, absolute daily move, and percentage move. Explain a material move or divergence with evidence. If no reliable single catalyst is found, write `暂未发现单一明确催化剂。`
+
+Also assign one explicit `市场风险状态`: `很低`, `较低`, `中等`, `较高`, or `很高`. Follow it with 1–3 sentences explaining the judgment using available evidence such as VIX/VXN, Treasury volatility, equity performance and breadth, verified credit stress, geopolitics, or cross-asset anomalies. Emoji and color may supplement the text but must never be the only risk description. Do not manufacture a falsely precise numeric risk score.
 
 ## Major U.S. equity indices
 
@@ -96,8 +121,11 @@ On normal trading days track:
 - S&P 500
 - Nasdaq Composite
 - Dow Jones Industrial Average
+- Russell 2000
 
-Report the close and daily percentage move, best and worst index, Growth versus Value, risk-on versus risk-off, and whether mega-cap technology drove the session.
+Report the close and daily percentage move, best and worst index, Growth versus Value, risk-on versus risk-off, and whether mega-cap technology drove the session. Use Russell 2000 to assess small caps, the domestic U.S. economy, rate-sensitive companies, market breadth, and whether a move is broad risk-on or concentrated in large technology.
+
+Call out meaningful divergences such as Nasdaq rising while Russell 2000 falls, or small caps materially outperforming the Magnificent Seven.
 
 ## Magnificent Seven
 
@@ -116,6 +144,12 @@ Focus on AI chip demand, hyperscaler CapEx, export restrictions, U.S./China semi
 For WTI Crude Oil report the latest confirmed price, daily change, and material driver. Watch OPEC+, U.S. inventories, the Middle East, Russia/Ukraine, Iran, global demand, China, and the U.S. dollar.
 
 For Gold report the latest confirmed price, daily change, and material driver. Watch real yields, Treasury yields, Fed expectations, the U.S. dollar, central-bank purchases, geopolitics, and safe-haven demand.
+
+## U.S. dollar
+
+Track `U.S. Dollar Index (DXY)` in the Dashboard with the latest confirmed level, absolute daily change, and percentage move. For a material move, connect it to Fed expectations, Treasury yields, U.S. economic data, global risk aversion, and major currency moves such as EUR or JPY.
+
+When interpreting Gold, WTI, U.S. equities, and global risk assets, assess whether DXY was an important driver.
 
 ## Important market news
 
@@ -142,9 +176,17 @@ For every selected item answer:
 - Why does the market care?
 - Which assets were affected or may be affected?
 
+## Cross-asset observations
+
+Immediately before Market Narrative, include `## 跨资产观察` with 2–5 concise, data-grounded conclusions connecting Treasury yields, DXY, equities, VIX/VXN, Gold, WTI, and Fed expectations.
+
+Explain what the assets collectively imply rather than repeating the Dashboard. If signals conflict, explicitly write `跨资产信号偏混合` and explain the contradiction. Do not mechanically reuse generic scenarios; every conclusion must be based on that report's actual data.
+
 ## Market Narrative
 
 Use 3–6 points to explain the logic the market was actually trading. Enable the reader to understand in one minute why the market moved as it did. Do not merely repeat dashboard figures.
+
+Apply the core rule: normal moves stay concise in the Dashboard; abnormal moves, meaningful divergences, and important catalysts receive the detailed explanation.
 
 ## What to Watch
 
@@ -186,6 +228,40 @@ Use these headings exactly when `report_type: trading_day`:
 
 ## 市场 Dashboard
 
+### 利率
+
+- 2Y Treasury
+- 10Y Treasury
+- 30Y Treasury
+- 2Y–10Y 美债利差
+
+### Fed
+
+- Fed Rate Expectations
+
+### 风险
+
+- VIX
+- VXN
+- 市场风险状态：很低 / 较低 / 中等 / 较高 / 很高
+
+### 股票
+
+- S&P 500
+- Nasdaq Composite
+- Dow Jones Industrial Average
+- Russell 2000
+- SOX
+
+### 美元
+
+- DXY
+
+### 商品
+
+- WTI
+- Gold
+
 ## 🇺🇸 美国国债
 
 ## 🌡️ 市场波动率
@@ -206,6 +282,8 @@ Use these headings exactly when `report_type: trading_day`:
 
 ## 📰 今日重要市场新闻
 
+## 跨资产观察
+
 ## 🧠 Market Narrative
 
 ## 👀 What to Watch
@@ -213,17 +291,22 @@ Use these headings exactly when `report_type: trading_day`:
 ## 🔗 Sources
 ```
 
-The Dashboard must explicitly include these labels even when one non-critical value is temporarily unavailable:
+Keep the Dashboard concise and scannable; put detailed explanations in later sections. It must explicitly include these labels even when one non-critical value is temporarily unavailable:
 
 - 2Y Treasury
 - 10Y Treasury
-- 2s10s
+- 30Y Treasury
+- 2Y–10Y 美债利差
+- Fed Rate Expectations
 - VIX
 - VXN
+- 市场风险状态
 - S&P 500
 - Nasdaq Composite
-- Dow
+- Dow Jones Industrial Average
+- Russell 2000
 - SOX
+- DXY
 - WTI
 - Gold
 
@@ -246,6 +329,8 @@ Use these headings exactly when `report_type: market_closed`:
 
 ## 📰 今日重要市场新闻
 
+## 跨资产观察
+
 ## 🧠 Market Narrative
 
 ## 👀 What to Watch
@@ -254,6 +339,10 @@ Use these headings exactly when `report_type: market_closed`:
 ```
 
 The market-closed explanation must identify why there is no new normal U.S. session and confirm that unchanged U.S. closing figures were not repeated.
+
+## Non-core indicators
+
+Do not require Bitcoin, High Yield Credit Spread, Investment Grade Spread, MOVE Index, or USD/JPY in the daily core Dashboard. Discuss one only when a material event makes it relevant to important news, Market Narrative, or 跨资产观察.
 
 ## Missing data versus failed generation
 

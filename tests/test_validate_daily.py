@@ -15,6 +15,11 @@ def report_body(report_type: str = "trading_day") -> str:
 
 {filler}
 
+## 跨资产观察
+
+- Treasury 与 DXY 的方向共同反映利率重新定价。{filler}
+- 股票、波动率与商品信号需要放在一起判断。{filler}
+
 ## 🧠 Market Narrative
 
 {filler}
@@ -48,7 +53,29 @@ def report_body(report_type: str = "trading_day") -> str:
     else:
         sections = f"""## 市场 Dashboard
 
-2Y Treasury | 10Y Treasury | 2s10s | VIX | VXN | S&P 500 | Nasdaq Composite | Dow | SOX | WTI | Gold
+### 利率
+
+2Y Treasury | 10Y Treasury | 30Y Treasury | 2Y–10Y 美债利差
+
+### Fed
+
+Fed Rate Expectations
+
+### 风险
+
+VIX | VXN | 市场风险状态：中等
+
+### 股票
+
+S&P 500 | Nasdaq Composite | Dow Jones Industrial Average | Russell 2000 | SOX
+
+### 美元
+
+DXY
+
+### 商品
+
+WTI | Gold
 
 ## 🇺🇸 美国国债
 
@@ -125,6 +152,53 @@ class ValidateDailyTests(unittest.TestCase):
             validate_report(low_sources, "2026-09-01")
         with self.assertRaises(ValidationFailure):
             validate_report(report_body()[:700], "2026-09-01")
+
+    def test_rejects_old_spread_label_and_missing_new_dashboard_core(self) -> None:
+        with self.assertRaises(ValidationFailure):
+            validate_report(
+                report_body().replace("2Y–10Y 美债利差", "2s10s"),
+                "2026-09-01",
+            )
+        for label in (
+            "30Y Treasury",
+            "Fed Rate Expectations",
+            "Russell 2000",
+            "DXY",
+        ):
+            with self.subTest(label=label), self.assertRaises(ValidationFailure):
+                validate_report(
+                    report_body().replace(label, "REMOVED CORE LABEL"),
+                    "2026-09-01",
+                )
+
+    def test_rejects_risk_state_without_approved_text_level(self) -> None:
+        with self.assertRaises(ValidationFailure):
+            validate_report(
+                report_body().replace("市场风险状态：中等", "市场风险状态：🟡"),
+                "2026-09-01",
+            )
+
+    def test_rejects_cross_asset_section_without_two_to_five_points(self) -> None:
+        with self.assertRaises(ValidationFailure):
+            validate_report(
+                report_body().replace(
+                    "- 股票、波动率与商品信号需要放在一起判断。" +
+                    "市场变化得到数据和可靠来源支持，并说明资产定价逻辑。" * 12,
+                    "",
+                ),
+                "2026-09-01",
+            )
+
+    def test_rejects_section_between_cross_asset_and_market_narrative(self) -> None:
+        with self.assertRaises(ValidationFailure):
+            validate_report(
+                report_body().replace(
+                    "## 🧠 Market Narrative",
+                    "## 额外章节\n\n不应夹在跨资产观察与 Market Narrative 之间。\n\n"
+                    "## 🧠 Market Narrative",
+                ),
+                "2026-09-01",
+            )
 
 
 if __name__ == "__main__":

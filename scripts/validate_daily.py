@@ -15,6 +15,7 @@ HTTPS_LINK_RE = re.compile(r"\[[^\]]+\]\(https://[^)]+\)")
 COMMON_HEADINGS = (
     (2, "今日市场一句话"),
     (2, "📰 今日重要市场新闻"),
+    (2, "跨资产观察"),
     (2, "🧠 Market Narrative"),
     (2, "👀 What to Watch"),
     (2, "🔗 Sources"),
@@ -25,6 +26,12 @@ TRADING_HEADINGS = COMMON_HEADINGS + (
     (2, "🌡️ 市场波动率"),
     (2, "📈 美国股市"),
     (2, "🛢️ 商品"),
+    (3, "利率"),
+    (3, "Fed"),
+    (3, "风险"),
+    (3, "股票"),
+    (3, "美元"),
+    (3, "商品"),
     (3, "Major Indices"),
     (3, "Magnificent Seven"),
     (3, "Semiconductors"),
@@ -40,16 +47,25 @@ CLOSED_HEADINGS = COMMON_HEADINGS + (
 DASHBOARD_LABELS = (
     "2Y Treasury",
     "10Y Treasury",
-    "2s10s",
+    "30Y Treasury",
+    "2Y–10Y 美债利差",
+    "Fed Rate Expectations",
     "VIX",
     "VXN",
+    "市场风险状态",
     "S&P 500",
     "Nasdaq Composite",
-    "Dow",
+    "Dow Jones Industrial Average",
+    "Russell 2000",
     "SOX",
+    "DXY",
     "WTI",
     "Gold",
 )
+RISK_STATE_RE = re.compile(
+    r"市场风险状态\s*[：:]\s*(很低|较低|中等|较高|很高)"
+)
+USER_FACING_2S10S_RE = re.compile(r"(?<![A-Za-z0-9])2s10s(?![A-Za-z0-9])", re.IGNORECASE)
 
 
 class ValidationFailure(RuntimeError):
@@ -120,6 +136,10 @@ def validate_report(raw: str, date_text: str) -> str:
         raise ValidationFailure("the full report must not be wrapped in a code fence")
     if body.count("```") % 2:
         raise ValidationFailure("report contains an unclosed code fence")
+    if USER_FACING_2S10S_RE.search(body):
+        raise ValidationFailure(
+            "user-facing report must display 2Y–10Y 美债利差 instead of 2s10s"
+        )
 
     headings = [
         (len(match.group(1)), match.group(2).strip().rstrip("#").strip())
@@ -133,15 +153,29 @@ def validate_report(raw: str, date_text: str) -> str:
 
     required = TRADING_HEADINGS if report_type == "trading_day" else CLOSED_HEADINGS
     heading_set = set(headings)
-    missing = [f"{'#' * level} {title}" for level, title in required if (level, title) not in heading_set]
+    missing = [
+        f"{'#' * level} {title}"
+        for level, title in required
+        if (level, title) not in heading_set
+    ]
     if missing:
         raise ValidationFailure("missing required heading(s): " + ", ".join(missing))
+
+    h2_titles = [title for level, title in headings if level == 2]
+    cross_asset_index = h2_titles.index("跨资产观察")
+    if h2_titles[cross_asset_index + 1] != "🧠 Market Narrative":
+        raise ValidationFailure("跨资产观察 must immediately precede Market Narrative")
 
     for _level, title in COMMON_HEADINGS:
         content = section_text(body, title)
         minimum = 20 if title == "🔗 Sources" else 40
         if len(re.sub(r"\s+", "", content)) < minimum:
             raise ValidationFailure(f"required section is empty or incomplete: {title}")
+
+    cross_asset = section_text(body, "跨资产观察")
+    cross_asset_points = len(re.findall(r"^\s*[-*]\s+", cross_asset, re.MULTILINE))
+    if not 2 <= cross_asset_points <= 5:
+        raise ValidationFailure("跨资产观察 must contain 2–5 bullet conclusions")
 
     compact_length = len(re.sub(r"\s+", "", body))
     minimum_length = 1200 if report_type == "trading_day" else 800
@@ -166,6 +200,10 @@ def validate_report(raw: str, date_text: str) -> str:
         if missing_labels:
             raise ValidationFailure(
                 "Dashboard is missing required label(s): " + ", ".join(missing_labels)
+            )
+        if not RISK_STATE_RE.search(dashboard):
+            raise ValidationFailure(
+                "Dashboard must state 市场风险状态 as 很低, 较低, 中等, 较高, or 很高"
             )
 
     return report_type
