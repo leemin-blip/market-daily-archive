@@ -174,11 +174,12 @@ market-daily/
 - 使用 `leemin-blip` 和确认的 GitHub noreply 邮箱创建本地初始提交。
 - 只读确认目标 GitHub 仓库为 Public、0 KB 且没有远程 refs，可安全执行首次推送。
 - 已将 `origin` 设置为 `https://github.com/leemin-blip/market-daily-archive.git`，并确认 GitHub CLI 当前登录账号为 `leemin-blip`。
-- 当前 OAuth Token 有 `repo` 权限但缺少 `workflow` scope；GitHub 因此拒绝包含 `.github/workflows/deploy-pages.yml` 的推送，远程仓库未被修改。
+- 原 OAuth Token 有 `repo` 权限但缺少 `workflow` scope；GitHub 因此拒绝包含 `.github/workflows/deploy-pages.yml` 的推送，远程仓库未被修改。
+- 授权刷新后旧 Token 已失效，但新 Token 未成功写回自定义 `GH_CONFIG_DIR`；目前需要对该目录完成一次完整 `gh auth login`。
 
-下一步：用户在本机为 GitHub CLI 增加 `workflow` scope 后，推送 `main` 并观察 GitHub Pages 首次部署结果。
+下一步：用户在本机对 `/Users/lantolee/.local/config/gh` 完成 GitHub CLI 重新登录并授予 `workflow` scope，然后推送 `main` 并观察 GitHub Pages 首次部署结果。
 
-阻塞项：GitHub CLI 已登录，但 OAuth 授权缺少 `workflow` scope。当前运行环境访问 GitHub 设备授权接口超时，需要用户在自己的终端完成一次授权刷新。
+阻塞项：自定义 GitHub CLI 配置中的 Token 当前无效。当前运行环境访问 GitHub 设备授权接口超时，需要用户在自己的终端完成一次完整登录。
 
 ## 10. Change Log
 
@@ -199,3 +200,4 @@ market-daily/
 - 用户创建目标 Public 仓库；只读验证确认仓库为空，不会覆盖任何远程内容。
 - 添加正确的 `origin` 后尝试首次推送；HTTPS 无登录凭据，SSH 无可用公钥，推送安全停止且远程仍为空。
 - 找到用户安装的 GitHub CLI 2.98.0 并确认已登录 `leemin-blip`；推送因缺少 `workflow` scope 被 GitHub 拒绝，设备授权刷新因当前环境网络超时未完成。
+- 用户批准 `workflow` 授权后，旧 Token 已失效但新凭据未写回；确认默认配置为空，必须继续使用自定义 `GH_CONFIG_DIR` 重新登录。
