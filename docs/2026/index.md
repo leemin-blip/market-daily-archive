@@ -7,7 +7,7 @@ title: 2026 年
 ## 月份
 
 <!-- BEGIN AUTO-GENERATED MONTH LIST -->
-- [08 月](08/index.md) — 1 篇日报
+- [08 月](08/index.md) — 2 篇日报
 <!-- END AUTO-GENERATED MONTH LIST -->
 
 ## 年度状态
