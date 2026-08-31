@@ -59,6 +59,7 @@ GitHub Pages 阅读
 
 ```text
 market-daily/
+├── AGENTS.md                  # Work/Codex 手动恢复口令与执行约定
 ├── PROJECT.md
 ├── README.md
 ├── SECURITY.md
@@ -70,9 +71,12 @@ market-daily/
 ├── scripts/
 │   ├── import_daily.py
 │   ├── publish_daily.sh
+│   ├── check_and_recover_daily.sh
+│   ├── recover_daily.py
 │   └── validate_daily.py
 ├── tests/
 │   ├── test_import_daily.py
+│   ├── test_recover_daily.py
 │   └── test_validate_daily.py
 ├── docs/
 │   ├── index.md
@@ -117,8 +121,9 @@ market-daily/
 - 新日报由入库工具同步加入 `mkdocs.yml`、首页、对应年/月索引和总档案页；自动生成区块不手工修改。
 - 同日期相同内容可安全重复运行；同日期不同内容必须拒绝覆盖并转人工检查。
 - 正式 Master Prompt 位于 `prompts/daily_market_report.md`，普通日报运行不得自行修改。
-- 每篇自动日报必须声明 `report_type: trading_day` 或 `report_type: market_closed`，并在任何 Git 操作前通过 fail-closed 完整性校验。
+- 每篇自动日报必须声明 `report_type: trading_day` 或 `report_type: market_closed`，并在入库、提交和推送前通过 fail-closed 完整性校验；恢复流程可先查询 Git 状态，但不得据此跳过已有内容的校验。
 - 单个非关键数据暂缺可以明确标注后继续；整篇为空、截断、日期错误或关键结构缺失必须停止发布。
+- V2 支持手动检查与故障恢复；自动 08:00 任务与手动恢复入口共用同一套幂等、Validator 和 fail-closed 规则。入口为 `./scripts/check_and_recover_daily.sh`，会话口令为“检查并补跑今日日报”。
 
 ## 6. Roadmap
 
@@ -161,6 +166,7 @@ market-daily/
 - [x] 严格构建、自动 commit 与 push
 - [x] 核对本地与远程提交，等待 GitHub Pages workflow
 - [x] 验证最终线上日报页面并提供可恢复重跑路径
+- [x] 手动检查并补跑入口：识别阶段、复用草稿/提交、拒绝内容冲突、有限部署重试和逐层状态摘要
 - [ ] 完成首次真实无人值守发布验收
 
 #### V2.3 — 月报
@@ -230,6 +236,13 @@ market-daily/
 - **Reason**：让非专业读者能快速理解收益率曲线和风险状态，同时用 30Y、美元、Fed 定价和小盘股补足财政/期限溢价、跨资产传导与市场宽度观察；控制日报长度，提升信息密度。
 - **Date**：2026-08-30
 - **Impact**：Master Prompt、日报模板与 Validator 必须保持这些结构一致；曲线术语需附普通中文解释，风险不得仅用 emoji / 颜色表达。Bitcoin、信用利差、MOVE 与 USD/JPY 暂不列入每日核心 Dashboard，重大事件时可临时分析。
+
+### Decision 011 — 独立状态恢复入口复用确定性入库规则
+
+- **Decision**：新增手动恢复检查器，不重构原 08:00 发布脚本或修改 Active 定时任务。复用现有 Validator、Markdown 比较规范及入库器；用已提交快照在临时目录运行入库器，证明未提交改动和未推送历史只属于本次日报后才继续。已完整发布时不重复生成、提交、推送或部署。
+- **Reason**：原发布脚本的干净工作区前置条件不覆盖“已入库但未 commit”；简单重跑或放宽整个暂存区会误收无关改动。状态恢复需要精确识别阶段，而非从生成开始重复执行。
+- **Date**：2026-08-31
+- **Impact**：恢复可先做只读 Git 状态检查以识别已提交或远程日报，但已有内容必须先通过 Validator，任何正式入库/提交/推送必须通过相同质量闸门。Work 口令由 `AGENTS.md` 固定；缺少日报时当前会话生成，终端则尝试现有 Codex CLI 的只读实时搜索生成，无新增 API 凭证。Actions 仅针对当前远程 SHA 有限重试，Pages 检查 HTTP、H1、摘要和来源链接。冲突、无关改动、分叉、权限或并发异常停止并保留现场，不自动覆盖、合并或强推。
 
 ## 8. Project Maintenance Rules / 项目维护规则
 
@@ -324,17 +337,25 @@ market-daily/
 - 发布链路已增加 fail-closed 质量闸门，并用自动测试覆盖完整交易日、休市版、非关键数据暂缺及残缺报告拒绝。
 - 首次无人值守运行前的日报模板已正式定版：Master Prompt 升级至 1.1，Validator 与维护模板同步增加 30Y、DXY、Fed Rate Expectations、Russell 2000、文字风险状态和跨资产观察。
 - `2026-08-30` 休市样板已按新版结构更新，并只补充有可靠来源支持的历史数据。
+- `2026-08-31` 首轮定时日报已完成入库、提交、push、远程 SHA、Actions 和 Pages 验证；执行中曾因沙盒认证访问受限而授权重试，不据此宣称全程无人介入已验收。
+- V2 支持“检查并补跑今日日报”：已有内容优先复用，按阶段恢复，并以相同 Validator、幂等和 fail-closed 规则控制发布；已完整发布返回无需补跑。独立恢复测试覆盖生成、部分入库、构建、推送与部署故障。
 
 尚未完成：
 
 - 尚未完成首次真实无人值守入库与发布验收。
 - V2.3 月报未开始。
 
-下一步：在下一个设备本地 08:00（当前等同 08:00 SGT）完成首次真实无人值守入库、发布和线上验证，随后观察数次运行稳定性。暂不开发月报。
+下一步：继续观察后续设备本地 08:00（当前等同 08:00 SGT）运行，确认无需权限介入的连续入库、发布和线上验证；遇到故障使用手动恢复入口，保留明确的失败层和恢复结果。暂不开发月报。
 
-阻塞项：无已知配置或代码阻塞；首次运行仍依赖电脑和 ChatGPT 桌面应用保持运行，以及既有工作区和 GitHub 权限可用。
+运行条件：电脑和 ChatGPT 桌面应用需保持运行，既有工作区和 GitHub 权限需可用；首次运行发生过权限重试，持续无人值守能力仍待验收。
 
 ## 10. Change Log
+
+### 2026-08-31
+
+- 首轮定时日报在权限重试后完整发布，后续仍需观察真正无人值守运行的稳定性。
+- 新增“检查并补跑今日日报”手动入口及 Work/Codex 口令约定；按生成、Validator、Import、Build、Commit、Push、Actions、Pages 层恢复，保护同日期内容和无关工作。
+- 增加恢复故障测试及维护说明；复用既有入库器与 Validator，原 08:00 Active 定时任务、发布脚本及 Pages workflow 未修改，V2.3 未开始。
 
 ### 2026-08-30
 
