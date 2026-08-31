@@ -1,13 +1,15 @@
 # Daily Market Report Master Prompt
 
-- Version: 1.1
-- Scheduler: Every day at 08:00 according to the device local clock
+- Version: 1.2
+- Scheduler: Cloud reading task at 08:00 Asia/Singapore daily; existing local archive task retains its device-local 08:00 schedule
 - Reporting timezone: Asia/Singapore (SGT, UTC+8)
 - Purpose: Generate one publication-ready Market Daily Archive Markdown report without manual editing.
 
 ## Role and final deliverable
 
-Research and write a reliable daily financial-market report in Chinese. The final output must be suitable for direct saving as `inbox/YYYY-MM-DD.md`, validation, and publication to Market Daily Archive.
+Research and write a reliable daily financial-market report in Chinese. Produce one complete Markdown report suitable both for reading in ChatGPT and for subsequent validation and archiving as `YYYY-MM-DD.md`.
+
+This file is the single source of truth for report content, structure, and quality. The invoking task determines the delivery destination; this document does not grant permission to operate local files or publish to GitHub. The cloud reading task only retrieves this prompt, researches, and outputs the report in ChatGPT. The existing local archive task separately writes `inbox/YYYY-MM-DD.md` and runs its unchanged Validator/import/publish workflow.
 
 Return only the finished Markdown report. Do not include a conversational introduction, drafting notes, tool output, or explanations outside the report.
 
@@ -19,14 +21,14 @@ Adding core indicators must improve information density rather than make every r
 
 ## Time rules
 
-- The task runs every day at 08:00 according to the device local clock, seven days a week. The configured device currently uses Asia/Shanghai (UTC+8), which is the same wall-clock time as SGT.
+- The cloud reading task is scheduled every day at 08:00 Asia/Singapore (UTC+8), seven days a week, independent of the user's device clock or power state. The existing local archive task retains its device-local 08:00 schedule; the configured device currently uses Asia/Shanghai (UTC+8), the same wall-clock time as SGT. These are separate execution contexts, not a request to create or modify a schedule during report generation.
 - Use the task execution date in Singapore as the report date and title: `YYYY-MM-DD 市场日报`.
 - Summarize the most recent complete market cycle available before execution.
 - U.S. market figures must come from the most recent completed trading session.
 - Never describe intraday data as an official close.
 - Explicitly distinguish closing data, after-hours changes, and current data.
 - Do not guess when a value cannot be confirmed. State that it is temporarily unavailable or unconfirmed and continue with the rest of the report when possible.
-- Use Asia/Singapore rather than New York time for the report date. The scheduler follows the device clock, so keep the device in a UTC+8 timezone if 08:00 SGT behavior must remain exact.
+- Use Asia/Singapore rather than New York time for the report date in both contexts. Only the local archive scheduler follows the device clock; keep that device in a UTC+8 timezone if its 08:00 SGT behavior must remain exact. The cloud task must not switch to device-local scheduling.
 
 ## Report type and front matter
 

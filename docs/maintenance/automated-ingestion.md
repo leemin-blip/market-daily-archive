@@ -40,6 +40,27 @@ OpenAI 官方文档说明，网页端定时任务不能直接操作本机目录�
 
 正式生成规则由仓库中的 `prompts/daily_market_report.md` 版本化管理。普通日报运行不得修改 Master Prompt 或 `PROJECT.md`。
 
+## 云端阅读版与本地归档的边界
+
+| 任务 | 调度与运行环境 | 输出职责 |
+| --- | --- | --- |
+| 美股市场日报（Active；首次定时验收待完成） | 每天 08:00 Asia/Singapore，7 天/周，ChatGPT 云端 | 在线读最新版 Prompt、研究、输出到聊天；不操作 Mac 或 GitHub Pages |
+| Market Daily Archive 日报入库 | 保持设备本地 08:00；需要电脑及桌面应用可用 | 本地生成、Validator、入库、commit/push、Actions、Pages 验证 |
+
+两者共享唯一内容真源：[GitHub main 的 Master Prompt](https://github.com/leemin-blip/market-daily-archive/blob/main/prompts/daily_market_report.md)。Master Prompt 1.2 仅澄清运行环境与交付边界，保留 1.1 的所有正式字段、交易日/休市规则和来源标准；本地脚本、Active 任务和恢复入口不变。
+
+云端任务的短指令应只要求：每次按新加坡日期，使用可用的 GitHub 只读连接工具或网页读取工具，完整取得上述文件的当前正文，再按其规则研究并在聊天输出 Markdown。可以使用[同一文件的 Raw 地址](https://raw.githubusercontent.com/leemin-blip/market-daily-archive/main/prompts/daily_market_report.md)，但不得把历史聊天、搜索摘要或旧 Prompt 副本当成最新内容。读取失败、结果截断或不能确认最新版时，只报告“无法读取最新 Master Prompt，本次未生成日报”及原因，不静默降级到旧版。
+
+网页定时任务能否调用所需工具取决于该聊天实际可用的连接与权限，必须在云端测试；本地成功读取文件不证明定时任务已具备相同能力。[官方任务说明](https://learn.chatgpt.com/docs/automations)
+
+2026-08-31 已通过原 ChatGPT 聊天的任务管理入口更新并回读：复用原任务，名称恢复为「美股市场日报」，Active，日历显式绑定 Asia/Singapore，每天 08:00；没有新建任务。默认时区元数据仍显示 Asia/Shanghai，但有效触发时区来自日历的显式 Asia/Singapore 设置。原通知、邮件偏好均保持关闭，不影响聊天内结果交付的任务职责。
+
+任务接口未返回 next_run_time；按保存的日历计算，配置当时的下一次为 2026-09-01 08:00 Asia/Singapore。云端聊天已成功读取 GitHub Master Prompt，但首次按新配置定时执行尚待验收；需检查该次运行的 Prompt 版本、来源和完整正文，不能把配置成功当作运行成功。
+
+没有云端动态读取工具时，保留单一 Git 真源并明确报告阻塞；不要复制一份长期 Prompt，也不要用本地定时任务冒充云端。可先在原 ChatGPT 网页聊天验证 GitHub 读取并配置已有任务。若仍不支持，独立云端调度器每次拉取 GitHub 文件再调用模型是可选替代，但需要另行确认 API 费用、凭据和投递渠道，不能保证结果自动进入个人 ChatGPT 聊天，本项目尚未实施。
+
+两条链路独立研究可能生成两份不同的阅读内容，这不等于重复发布网站：只有本地链路负责 Pages。当前没有云端聊天输出自动转交本地的桥接；不得把云端正文自动覆盖到已存在的同日期归档。
+
 ## 输入契约
 
 每次入库需要：
