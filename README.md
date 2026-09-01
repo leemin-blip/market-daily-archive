@@ -27,7 +27,9 @@ mkdocs build --strict
 
 ## V2 自动入库
 
-正式日报生成规则保存在 [`prompts/daily_market_report.md`](prompts/daily_market_report.md)。任务每天跟随设备本地时钟 08:00 运行；当前设备为 Asia/Shanghai，与 SGT 同为 UTC+8。日报日期仍以 Asia/Singapore 为准。
+正式日报生成规则保存在唯一真源 [`prompts/daily_market_report.md`](prompts/daily_market_report.md)。Plan B 使用 GitHub Actions 在 00:00 UTC（08:00 Asia/Singapore）调用 OpenAI Responses API + Web Search，一次生成唯一 Markdown，再经过既有 Validator、确定性入库器和 Pages 发布链路。
+
+正式 cron 在首次真实 `workflow_dispatch` 全链路验收前由 repository variable `MARKET_DAILY_CRON_ENABLED` 门控。API 凭证只使用 GitHub repository secret `OPENAI_API_KEY`，不得写入仓库。
 
 发布前先执行 fail-closed 完整性校验：
 

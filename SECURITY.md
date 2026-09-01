@@ -15,7 +15,7 @@ Never commit any of the following:
 
 Local environment and credential files are excluded by `.gitignore`, but ignore rules are not a substitute for reviewing changes before every commit.
 
-GitHub Actions should use repository or environment secrets when credentials are required in future versions. Workflows must reference those secrets through GitHub Actions expressions and must never embed secret values in YAML or Markdown.
+GitHub Actions uses the repository secret `OPENAI_API_KEY` for the Plan B daily generator. Workflows must reference it only through GitHub Actions expressions and must never embed or copy its value into YAML, Markdown, `.env`, artifacts, step summaries, command arguments, or debug output. Shell tracing must remain disabled around secret-bearing steps, and API error handling must not print raw response bodies.
 
 ## Before committing
 

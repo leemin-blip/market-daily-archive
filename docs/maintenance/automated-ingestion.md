@@ -5,61 +5,76 @@ description: Market Daily Archive V2 每日入库与发布操作说明
 
 # V2 自动入库与发布
 
-V2 的最小可靠链路将“内容生成”和“仓库修改”分开：
+V2 Plan B 采用 **Single Generation, Multiple Outputs / 一次生成，多个出口**：
 
 ```text
-ChatGPT 桌面端项目级定时任务
-        ↓ 生成 Markdown
-inbox/YYYY-MM-DD.md（Git 忽略）
+GitHub Actions（00:00 UTC / 08:00 SGT）
         ↓
+OpenAI Responses API + Web Search
+        ↓ 唯一 Markdown；仅在 runner 临时目录暂存
 scripts/validate_daily.py（fail closed）
         ↓
 scripts/import_daily.py
         ↓
 日报文件 + 年/月索引 + 总档案 + MkDocs 导航
         ↓
-scripts/publish_daily.sh
+严格构建 → commit → push main
         ↓
-严格构建 → commit → push → Actions → Pages → 线上验证
+deploy-pages.yml → GitHub Pages → 线上正文验证
+        ↓
+ChatGPT 云端任务只读取同一份正式 Archive，不重新生成
 ```
 
-## 为什么使用本地项目级定时任务
+AI 只负责研究和生成 Markdown。Validator、入库、导航、构建、提交、部署和页面验证全部保持确定性。
 
-OpenAI 官方文档说明，网页端定时任务不能直接操作本机目录；ChatGPT 桌面端的项目级定时任务可以在本地项目目录或隔离 worktree 中运行，但电脑需要保持开机且应用需要运行。定时任务仍受文件系统、网络和审批策略约束。[Scheduled tasks 官方文档](https://learn.chatgpt.com/docs/automations)
+## 为什么采用 GitHub Actions + OpenAI API
 
-本项目不假设网页端 ChatGPT 任务能够无条件写入 GitHub，也不把 Token、API Key 或其他凭证写入仓库。
+隔离 canary 已证明 ChatGPT Cloud Scheduled Task 没有完成无人值守 GitHub 写入，不能作为可靠的云端交接层。Plan B 改由 GitHub Actions 调用 OpenAI 官方 Responses API；Responses API 支持内置 Web Search，生成器可在不依赖 Mac 的环境中实时研究。[Responses API](https://developers.openai.com/api/reference/cli/resources/responses/methods/create) · [OpenAI 模型目录](https://developers.openai.com/api/docs/models)
+
+`prompts/daily_market_report.md` 仍是唯一长期 Prompt 真源。Workflow 读取文件正文，不复制 Master Prompt；`scripts/generate_daily.py` 只补充“必须联网研究、只返回完整 Markdown、失败不得返回残稿”的调用边界。
 
 ## 正式调度
 
-- 频率：每天运行，每周 7 天。
-- 时间：设备本地时钟 08:00。
-- 当前设备时区：`Asia/Shanghai`（UTC+8），与 SGT 同一时刻。
-- 日报日期边界：`Asia/Singapore`。不使用纽约日期，也不随美国夏令时或冬令时切换。
-- 如果设备将来切换到非 UTC+8 时区，任务会跟随设备时钟；需要人工确认是否仍符合 08:00 SGT 的预期。
+- 目标频率：每天运行，每周 7 天。
+- Cron：`0 0 * * *`，即 00:00 UTC / 08:00 Asia/Singapore，无 DST。
+- 日报日期由 runner 使用 `Asia/Singapore` 计算；`workflow_dispatch` 可显式传入 ISO 日期用于补跑。
 - 周末和美国休市日仍运行，并根据 Master Prompt 生成 `market_closed` 休市版日报。
+- 在至少一次真实 `workflow_dispatch` 全链路验收前，计划任务由 repository variable `MARKET_DAILY_CRON_ENABLED` 安全门控；未设为字符串 `true` 时，cron run 只会跳过生产 job。
 
-正式生成规则由仓库中的 `prompts/daily_market_report.md` 版本化管理。普通日报运行不得修改 Master Prompt 或 `PROJECT.md`。
+## API、模型和联网研究
 
-## 云端阅读版与本地归档的边界
+- 接口：OpenAI Responses API，`POST /v1/responses`。
+- 模型：`gpt-5.6-sol`，用于复杂、多来源的金融研究与长篇 Markdown 生成。
+- 工具：正式 `web_search`；调用设置为 required，并在响应中验证确实出现 `web_search_call`。
+- 完整性：只接受 `status=completed`、存在 Web Search 调用且正文非空的响应；`incomplete`、空输出、API/网络失败均停在 Generate。
+- 隐私：`store: false`；API Key 只来自 GitHub Actions secret `OPENAI_API_KEY`。
 
-| 任务 | 调度与运行环境 | 输出职责 |
-| --- | --- | --- |
-| 美股市场日报（Active；首次定时验收待完成） | 每天 08:00 Asia/Singapore，7 天/周，ChatGPT 云端 | 在线读最新版 Prompt、研究、输出到聊天；不操作 Mac 或 GitHub Pages |
-| Market Daily Archive 日报入库 | 保持设备本地 08:00；需要电脑及桌面应用可用 | 本地生成、Validator、入库、commit/push、Actions、Pages 验证 |
+## Secrets 与最小权限
 
-两者共享唯一内容真源：[GitHub main 的 Master Prompt](https://github.com/leemin-blip/market-daily-archive/blob/main/prompts/daily_market_report.md)。Master Prompt 1.2 仅澄清运行环境与交付边界，保留 1.1 的所有正式字段、交易日/休市规则和来源标准；本地脚本、Active 任务和恢复入口不变。
+- 必需 repository secret：`OPENAI_API_KEY`。
+- 不把 Key 写入仓库、`.env`、日报、artifact、Actions Summary 或命令参数。
+- Workflow 不启用 shell tracing，不输出 API 原始响应或错误正文。
+- `GITHUB_TOKEN` 只授予 `contents: write` 和 `actions: write`：前者用于 main 提交，后者用于显式 dispatch/等待现有 Pages workflow。
+- GitHub 使用 `GITHUB_TOKEN` 推送时不会递归触发新的 workflow；生成 workflow 在 push 后仅在对应 SHA 尚无 Pages run 时显式 dispatch `deploy-pages.yml`。
 
-云端任务的短指令应只要求：每次按新加坡日期，使用可用的 GitHub 只读连接工具或网页读取工具，完整取得上述文件的当前正文，再按其规则研究并在聊天输出 Markdown。可以使用[同一文件的 Raw 地址](https://raw.githubusercontent.com/leemin-blip/market-daily-archive/main/prompts/daily_market_report.md)，但不得把历史聊天、搜索摘要或旧 Prompt 副本当成最新内容。读取失败、结果截断或不能确认最新版时，只报告“无法读取最新 Master Prompt，本次未生成日报”及原因，不静默降级到旧版。
+## Staging、幂等和并发
 
-网页定时任务能否调用所需工具取决于该聊天实际可用的连接与权限，必须在云端测试；本地成功读取文件不证明定时任务已具备相同能力。[官方任务说明](https://learn.chatgpt.com/docs/automations)
+- AI 输出写入 `$RUNNER_TEMP/YYYY-MM-DD.md`，不进入 Git history，也不上传 artifact。Runner 结束后自动消失。
+- Validator 通过后才调用既有 importer；未经验证的 AI 内容无法进入 `docs/`。
+- 正式日报已存在时，先用 Validator 验证并幂等退出生成、入库、commit 和 push；不会再次消耗 API 或覆盖历史。
+- 同日期不同内容仍由 importer 拒绝；自动流程没有“修订日报”入口。
+- Workflow 使用固定 concurrency group `market-daily-generation` 串行化所有 schedule 与手动补跑，`cancel-in-progress: false`，避免取消一个正在发布的有效运行。
+- Push 前重新读取 `origin/main`；若生成期间 main 已变化则停在 Push，不自动合并、不 rebase、不强推。
 
-2026-08-31 已通过原 ChatGPT 聊天的任务管理入口更新并回读：复用原任务，名称恢复为「美股市场日报」，Active，日历显式绑定 Asia/Singapore，每天 08:00；没有新建任务。默认时区元数据仍显示 Asia/Shanghai，但有效触发时区来自日历的显式 Asia/Singapore 设置。原通知、邮件偏好均保持关闭，不影响聊天内结果交付的任务职责。
+## 切换边界
 
-任务接口未返回 next_run_time；按保存的日历计算，配置当时的下一次为 2026-09-01 08:00 Asia/Singapore。云端聊天已成功读取 GitHub Master Prompt，但首次按新配置定时执行尚待验收；需检查该次运行的 Prompt 版本、来源和完整正文，不能把配置成功当作运行成功。
+Plan B 尚未通过真实 API 全链路验收，因此现有两个正式任务暂不修改或暂停：
 
-没有云端动态读取工具时，保留单一 Git 真源并明确报告阻塞；不要复制一份长期 Prompt，也不要用本地定时任务冒充云端。可先在原 ChatGPT 网页聊天验证 GitHub 读取并配置已有任务。若仍不支持，独立云端调度器每次拉取 GitHub 文件再调用模型是可选替代，但需要另行确认 API 费用、凭据和投递渠道，不能保证结果自动进入个人 ChatGPT 聊天，本项目尚未实施。
+- `美股市场日报` 仍保持原 08:00 配置；验收后才改为约 08:10，只读当天正式 Archive 并忠实展示，缺失时明确报告、不自行生成。
+- `Market Daily Archive 日报入库` 仍保持 Active；验收后先暂停观察数天，不删除，保留回滚与本地恢复能力。
+- V2.3 月报继续禁止启动。
 
-两条链路独立研究可能生成两份不同的阅读内容，这不等于重复发布网站：只有本地链路负责 Pages。当前没有云端聊天输出自动转交本地的桥接；不得把云端正文自动覆盖到已存在的同日期归档。
+只有在真实 `workflow_dispatch` 同时通过 Generate、Validate、Import、Build、Commit、Push、Deploy、Verify，且确认日志无 secret 泄漏后，才把 `MARKET_DAILY_CRON_ENABLED` 设为 `true` 并修改两个旧任务职责。
 
 ## 输入契约
 
@@ -128,7 +143,7 @@ scripts/publish_daily.sh \
 
 ### 一键检查并补跑今日日报
 
-V2 支持手动检查与故障恢复；自动 08:00 任务与手动恢复入口共用同一套幂等、Validator 和 fail-closed 规则。原有定时任务、发布脚本和部署 workflow 不变。
+V2 支持手动检查与故障恢复；GitHub Actions 自动链路、手动 `workflow_dispatch` 与本地 fallback 共用同一套幂等、Validator 和 fail-closed 规则。原发布脚本继续保留，但 Plan B 的主要补跑入口改为云端 workflow。
 
 在 Work / Codex 中说：**检查并补跑今日日报**。仓库根目录的 `AGENTS.md` 定义了这一操作的恢复流程。
 
@@ -138,11 +153,13 @@ V2 支持手动检查与故障恢复；自动 08:00 任务与手动恢复入口�
 ./scripts/check_and_recover_daily.sh
 ```
 
-无需填写日期或理解各个发布步骤。默认使用 Asia/Singapore 今天日期；已有草稿或归档始终优先复用。只有不存在日报时才尝试生成。
+无需填写日期或理解各个发布步骤。默认使用 Asia/Singapore 今天日期；先检查正式 Archive、远程 workflow 和已有草稿。只有确实不存在可用日报时才 dispatch 唯一 Generate workflow，不在 Work 会话再生成第二份。
 
 | 检查到的状态 | 恢复动作 |
 | --- | --- |
-| 本地和远程都没有日报 | 动态读取 PROJECT.md 和最新版 Master Prompt；生成、Validator、入库、构建、提交与发布 |
+| 本地和远程都没有日报 | 触发 `generate-daily.yml` 的 `workflow_dispatch`；由 Responses API 唯一生成，再完成 Validator、入库、构建、提交与发布 |
+| Generate workflow 已排队或运行 | 等待同一 run，不再次 dispatch，不在本地生成 |
+| Generate workflow 失败 | 返回 run URL 与 Actions Summary 的 Blocked layer；不自动切换为第二个 AI 生成器 |
 | inbox 有完整草稿 | 先 Validator，复用草稿，不再生成 |
 | 正式文件已存在但未提交，或导航只完成一部分 | 与现有入库器在临时目录生成的预期结果比对，仅补齐缺失的确定性导航，再严格构建和提交 |
 | 本地已提交、push 失败 | 检查未推送历史只包含本次日报的确定性结果；复用原提交，构建并 push，核对远程 SHA |
@@ -158,8 +175,9 @@ V2 支持手动检查与故障恢复；自动 08:00 任务与手动恢复入口�
 
 ### 生成能力与安全边界
 
-- Work / Codex 会话使用 `--no-generate --json` 检查；只有退出码 3 才由当前会话生成，然后再次调用同一恢复入口。完整已有草稿不调用模型。
-- 本地终端入口在缺少日报时使用已安装并登录的 Codex CLI，启用实时搜索、只读沙盒，将最终响应写到 Git 忽略的临时目录。仅当生成器成功退出且 Validator 通过，才以不覆盖已有文件的方式接纳为正式 inbox 草稿。CLI、认证、额度或网络不可用时会明确停止，不需要也不会把 API Key 写入仓库。[OpenAI 非交互执行说明](https://learn.chatgpt.com/docs/non-interactive-mode)
+- Work / Codex 会话先使用 `--no-generate --json` 检查；只有退出码 3 才调用 `scripts/dispatch_daily_workflow.sh YYYY-MM-DD`。完整已有草稿或 Archive 不调用模型。
+- `dispatch_daily_workflow.sh` 只创建一次 `workflow_dispatch` 并等待新 run；并发组会串行化与 cron 的重叠。失败保留在 Actions 日志与 Summary，不把未验证草稿保存成 artifact。
+- 本地 Codex CLI 生成能力仍保留作为显式 fallback，但不会在 cloud workflow 失败后自动启用。只有用户查看失败层后明确要求本地恢复，才使用原 `check_and_recover_daily.sh` 链路。
 - 生成失败或超时，即使留下看似完整的输出，也不自动发布。诊断输出留在 `inbox/.generation-日期-*/`；通过当前会话人工检查或重新生成后再恢复。
 - 所有同日期内容比较沿用现有换行规范。真正不同的正文、来源或 front matter 禁止自动覆盖，包括本地提交、草稿与远程之间的冲突。
 - 未提交内容必须精确匹配“现有入库器应用于已提交快照”的结果，才可以恢复；无关或混合的暂存内容、手工修改过的导航会停止，绝不自动 stash、reset 或顺带提交。
@@ -180,6 +198,6 @@ V2 支持手动检查与故障恢复；自动 08:00 任务与手动恢复入口�
 
 ## 定时任务接入状态
 
-仓库内的 Master Prompt、质量闸门、确定性入库和发布工具已经建立。桌面端任务 `Market Daily Archive 日报入库` 保持 Active，每天跟随设备本地时钟 08:00 运行。2026-08-31 首轮定时日报已成功发布并完成线上验证，但经历过沙盒认证访问的权限重试；仍需观察无权限介入时的稳定性。
+Plan B 的仓库实现已经建立：`generate-daily.yml`、Responses API 生成器、runner 临时 staging、既有 Validator/importer、strict build、受限提交、远程 SHA、Pages dispatch 与最终正文验证。Cron 已登记为 00:00 UTC，但由 `MARKET_DAILY_CRON_ENABLED` 门控；缺少真实 API 全链路验收时不会接管生产。
 
-新增手动恢复入口不替换定时任务，也不改变原发布脚本。应继续观察真实运行并完成无人值守验收，再决定是否进入月报开发。
+当前仍需在 GitHub 设置 `OPENAI_API_KEY` secret，并至少成功执行一次真实 `workflow_dispatch`。在此之前，桌面端 `Market Daily Archive 日报入库` 与 ChatGPT 云端 `美股市场日报` 都保持原配置，未暂停、未改职责。验收成功后再启用 cron、把云端任务改为 08:10 只读展示，并暂停本地每日生成任务观察；不删除恢复能力，不开始 V2.3。

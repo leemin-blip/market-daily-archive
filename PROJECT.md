@@ -37,7 +37,7 @@ GitHub Pages 阅读
 - V2.2：自动构建、commit、push、部署并验证远程页面。
 - V2.3：月报；等待每日自动入库稳定运行后再开发。
 
-云端阅读版与本地归档分工：`美股市场日报` 的目标是固定每天 08:00 Asia/Singapore 在 ChatGPT 输出日报，不依赖 Mac，也不发布 GitHub Pages；`Market Daily Archive 日报入库` 保持现有本地链路。两者只共享 `prompts/daily_market_report.md` 这一内容真源，不假设聊天输出会自动传给本地任务。
+Plan B 目标采用 **Single Generation, Multiple Outputs**：GitHub Actions 在 08:00 Asia/Singapore 调用 OpenAI Responses API + Web Search，只生成一份 Markdown；同一份内容通过 Validator、确定性入库器和 Pages 发布后，再由 ChatGPT 云端任务只读展示。当前处于 staged rollout：仓库实现已完成，但真实 API 全链路尚未验收，cron 由安全变量门控，两个旧任务暂不改动。
 
 ### 暂不包含
 
@@ -54,8 +54,10 @@ GitHub Pages 阅读
 | 自动化 | GitHub Actions | 构建与部署 |
 | 托管 | GitHub Pages | 公开或私有可访问的网站 |
 | 日报入库 | Python 3 标准库 | 校验、去重、写入与导航生成 |
+| 唯一 AI 生成 | OpenAI Responses API + Web Search | 研究并生成一份 canonical Markdown；不负责发布 |
 | 发布编排 | Bash / Git / GitHub CLI / curl | 构建、提交、推送与端到端验证 |
-| 任务调度 | ChatGPT 桌面端当前任务 heartbeat | 每天跟随设备本地时钟 08:00 运行；日报日期以 Asia/Singapore 为准 |
+| 目标云端调度 | GitHub Actions | `0 0 * * *`（08:00 SGT）；真实手动验收前由 repository variable 门控 |
+| 迁移期 fallback | ChatGPT / Codex 现有任务 | 保持原配置直至 Plan B 真实验收，之后先暂停而非删除本地每日任务 |
 
 ## 4. 目标目录结构
 
@@ -74,9 +76,14 @@ market-daily/
 │   ├── import_daily.py
 │   ├── publish_daily.sh
 │   ├── check_and_recover_daily.sh
+│   ├── dispatch_daily_workflow.sh
+│   ├── generate_daily.py
 │   ├── recover_daily.py
-│   └── validate_daily.py
+│   ├── validate_daily.py
+│   └── verify_daily_page.py
 ├── tests/
+│   ├── test_generate_daily.py
+│   ├── test_generate_workflow.py
 │   ├── test_import_daily.py
 │   ├── test_recover_daily.py
 │   └── test_validate_daily.py
@@ -97,7 +104,8 @@ market-daily/
 │           └── 2026-08-30.md
 └── .github/
     └── workflows/
-        └── deploy-pages.yml
+        ├── deploy-pages.yml
+        └── generate-daily.yml
 ```
 
 ## 5. 日报约定
@@ -165,6 +173,14 @@ market-daily/
 - [x] Master Prompt 1.2 区分云端聊天输出与本地归档职责，不改变已定版字段和质量要求
 - [x] 原「美股市场日报」云端任务恢复 Active，日历明确绑定每天 08:00 Asia/Singapore，仅保存动态读取 GitHub Prompt 的短指令
 - [ ] 验收首次云端定时运行实际读取最新版 Prompt 并完成聊天日报
+- [x] Canary 验证 ChatGPT Cloud Scheduled Task 未完成无人值守 GitHub 写入，放弃直接写仓库的方案 A
+- [x] 实现 Plan B Responses API 唯一生成器、Web Search 与 runner 临时 staging
+- [x] 新增 `generate-daily.yml`：08:00 SGT cron、手动 dispatch、并发串行、fail-closed 分层和确定性发布
+- [x] Master Prompt 1.3 改为交付中立的一次生成规范，不再长期描述两套独立 AI 生成职责
+- [ ] 设置 GitHub repository secret `OPENAI_API_KEY`
+- [ ] 完成一次真实 `workflow_dispatch` 的 Generate → Verify 全链路验收
+- [ ] 验收后启用 `MARKET_DAILY_CRON_ENABLED=true`，完成首次 GitHub Actions 无人值守定时运行
+- [ ] 验收后将云端「美股市场日报」改为约 08:10 只读正式 Archive，不重新研究或生成
 
 #### V2.2 — 自动发布
 
@@ -172,6 +188,7 @@ market-daily/
 - [x] 核对本地与远程提交，等待 GitHub Pages workflow
 - [x] 验证最终线上日报页面并提供可恢复重跑路径
 - [x] 手动检查并补跑入口：识别阶段、复用草稿/提交、拒绝内容冲突、有限部署重试和逐层状态摘要
+- [x] 手动缺失日报优先 dispatch 唯一 Generate workflow；本地 AI 生成降为需用户明确授权的 fallback
 - [ ] 完成首次真实无人值守发布验收
 
 #### V2.3 — 月报
@@ -255,6 +272,14 @@ market-daily/
 - **Reason**：云端任务无法操作用户 Mac 目录，不应因本地归档步骤不可用而停止聊天阅读服务；同一内容规范应可被不同运行环境使用。
 - **Date**：2026-08-31
 - **Impact**：Master Prompt 1.2 将内容规则与交付权限分开。云端读取失败或不能取得完整最新版时明确报错，不使用旧副本生成。两个任务独立生成可能得到不同正文，但只有本地链路发布 Pages；不得自动把云端正文覆盖进同日期归档。云端已配置与否必须以真实任务状态及运行记录为准，发送配置请求不等于保存成功。
+- **Status**：作为迁移期旧任务边界保留；目标生产架构已由 Decision 013 取代，待 Plan B 真实验收后完成任务切换。
+
+### Decision 013 — Single Generation, Multiple Outputs 使用 GitHub Actions + OpenAI API
+
+- **Decision**：放弃 ChatGPT Cloud Scheduled Task 直接写 GitHub 的方案 A。Plan B 由 GitHub Actions 每天 00:00 UTC（08:00 Asia/Singapore）读取唯一 Master Prompt，通过 OpenAI Responses API 与 Web Search 生成一份 canonical Markdown；AI 输出只进入 runner 临时目录，Validator 通过后才由既有 importer、strict build、Git/Pages 与页面验证完成确定性发布。ChatGPT 阅读任务在验收后只展示当天正式 Archive，不再生成第二份日报。
+- **Reason**：隔离 canary 的一次性云端任务有完成记录，但 canary 分支 SHA 未变化且目标文件不存在，证明当前无人值守 ChatGPT Cloud → GitHub 写入能力未通过。把生成放在 GitHub Actions 可去除 Mac 依赖、消除双生成，并让凭证、并发、失败层和远程状态可审计。
+- **Date**：2026-09-01
+- **Impact**：新增 `generate-daily.yml`、Responses API 生成器、临时 staging、云端 dispatch 辅助入口及测试；需要 repository secret `OPENAI_API_KEY`。Cron 已按最终时间登记但由 `MARKET_DAILY_CRON_ENABLED` 门控，至少一次真实手动全链路成功前不接管生产，也不修改或暂停两个旧任务。API/联网、Validator、Import、Build、Commit、Push、Deploy、Verify 任一失败均 fail closed；未经验证的 AI 输出不进入 Git history。V2.3 继续延后。
 
 ## 8. Project Maintenance Rules / 项目维护规则
 
@@ -353,20 +378,35 @@ market-daily/
 - V2 支持“检查并补跑今日日报”：已有内容优先复用，按阶段恢复，并以相同 Validator、幂等和 fail-closed 规则控制发布；已完整发布返回无需补跑。独立恢复测试覆盖生成、部分入库、构建、推送与部署故障。
 - Master Prompt 1.2 已明确云端阅读 / 本地归档边界，保留 1.1 的全部指标、章节和来源标准；云端只在线读取 GitHub 最新文件，不运行本地链路。
 - 已通过原 ChatGPT 聊天的任务管理入口，将曾被改名的原云端任务恢复为「美股市场日报」并启用；回读确认日历时区明确为 Asia/Singapore，每天 08:00。默认时区元数据仍为 Asia/Shanghai，实际触发使用日历中显式指定的 Asia/Singapore；原通知和邮件偏好未改。没有新建任务，本地 heartbeat 保持原样。
+- Isolated GitHub write canary 已完成：ChatGPT Cloud 一次性任务产生完成记录，但隔离分支 SHA 未前进、目标文件为 404，方案 A 未通过且未触碰 main、Pages 或两个正式任务。
+- Plan B 仓库实现已完成：Responses API + Web Search 唯一生成器、runner 临时 staging、`generate-daily.yml`、既有 Validator/importer、strict build、受限提交、远程 SHA、Pages dispatch 与最终页面正文验证。
+- Master Prompt 升级至 1.3，改为交付中立的一次 canonical Markdown 规范；后续显示端必须复用正式 Archive，不得重新研究或改写。
+- 生成 workflow 已配置 `0 0 * * *`、固定 concurrency group 与八层 fail-closed Summary；真实手动验收前由 `MARKET_DAILY_CRON_ENABLED` 门控，不会直接接管每日生产。
+- 手动恢复口令在缺失日报时优先 dispatch 同一 Generate workflow；本地 Codex 生成只保留为用户明确授权后的 fallback。
+- 本轮 59 项自动测试与 `mkdocs build --strict` 已通过，覆盖 API 空输出/失败/截断、Web Search 要求、Validator、交易日/休市版、幂等/冲突、build/push/Pages 恢复、workflow_dispatch、cron 门控和 concurrency。
 
 尚未完成：
 
-- 尚未完成首次真实无人值守入库与发布验收。
+- 已只读确认 GitHub repository 尚未设置 `OPENAI_API_KEY` secret，无法执行真实 API `workflow_dispatch`。
+- 尚未完成 Plan B 的真实 `workflow_dispatch` Generate → Verify 全链路验收，因此 cron 未启用生产。
+- 尚未完成首次 GitHub Actions 08:00 SGT 无人值守入库与发布验收。
 - V2.3 月报未开始。
-- 云端首次定时运行尚待验收。原云端聊天已成功在线读取 GitHub Master Prompt，但普通聊天读取成功不能替代定时运行验收；任务接口未返回 next_run_time，不把按日历计算的下次时间冒充服务端回执。
+- 两个旧任务仍保持原配置；ChatGPT 云端任务尚未切换到约 08:10 的 Archive-only 展示职责，本地每日入库任务也未暂停。
 
-下一步：继续观察后续设备本地 08:00（当前等同 08:00 SGT）运行，确认无需权限介入的连续入库、发布和线上验证；遇到故障使用手动恢复入口，保留明确的失败层和恢复结果。暂不开发月报。
+下一步：在 GitHub 设置 `OPENAI_API_KEY` repository secret，推送本轮实现后手动 dispatch `generate-daily.yml`，用真实 Master Prompt 和 API 验收 Generate、Validate、Import、Build、Commit、Push、Deploy、Verify 及日志脱敏。成功后才启用 `MARKET_DAILY_CRON_ENABLED=true` 并修改两个旧任务职责。暂不开发月报。
 
-云端下一步：检查首次按新配置触发的运行记录，确认在线读取 `main` 最新 Master Prompt、采用正确新加坡日期、完整输出并保留来源；读取失败应明确报告且不使用旧版。2026-08-31 配置完成时，按日历计算的下一次为 2026-09-01 08:00 Asia/Singapore，尚非已执行结果。
+云端下一步：Plan B 验收成功后，将「美股市场日报」改为约 08:10 Asia/Singapore，只读取当天正式 Archive Markdown并忠实展示；若尚未发布则明确报告，不执行第二次研究或生成。
 
-运行条件：电脑和 ChatGPT 桌面应用需保持运行，既有工作区和 GitHub 权限需可用；首次运行发生过权限重试，持续无人值守能力仍待验收。
+运行条件：Plan B 目标日常运行不依赖 Mac；需要 GitHub Actions 可用、`OPENAI_API_KEY` secret 有效、OpenAI API/Web Search 可用，以及 `GITHUB_TOKEN` 具备 workflow 中声明的最小权限。迁移期旧本地任务仍需要电脑，直到真实验收后暂停。
 
 ## 10. Change Log
+
+### 2026-09-01
+
+- Isolated GitHub write canary 未通过：ChatGPT Cloud Scheduled Task 有一次完成记录，但隔离分支未产生 commit、目标文件不存在；main、Pages 和两个正式任务均未改变，因此正式放弃方案 A。
+- 实施 Plan B 的 Single Generation, Multiple Outputs 仓库链路：GitHub Actions + OpenAI Responses API/Web Search 唯一生成，runner 临时 staging 后复用 Validator、importer、strict build、Git/Pages 和最终正文验证。
+- 新增 08:00 SGT cron、手动 dispatch、并发串行、八层 fail-closed Summary、API/空输出/截断/幂等/冲突/workflow 自动测试与云端补跑入口；59 项测试和严格构建通过，API Key 仅允许使用 GitHub secret。
+- Master Prompt 升级至 1.3，移除两套独立生成职责；真实 API 全链路验收前 cron 保持门控，两个旧任务不修改、不暂停，V2.3 不开始。
 
 ### 2026-08-31
 

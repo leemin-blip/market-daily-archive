@@ -1,0 +1,260 @@
+name: Generate and publish Market Daily Archive report
+
+on:
+  workflow_dispatch:
+    inputs:
+      report_date:
+        description: Optional Asia/Singapore report date (YYYY-MM-DD)
+        required: false
+        type: string
+  schedule:
+    - cron: "0 0 * * *"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: market-daily-generation
+  cancel-in-progress: false
+
+jobs:
+  generate-and-publish:
+    # Register the final 00:00 UTC schedule now, but do not let it take over daily
+    # production until one real workflow_dispatch run has passed end to end.
+    if: github.event_name == 'workflow_dispatch' || vars.MARKET_DAILY_CRON_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OPENAI_MODEL: gpt-5.6-sol
+      GH_TOKEN: ${{ github.token }}
+      CURRENT_LAYER: Initialize
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install site dependencies
+        run: python -m pip install --requirement requirements.txt
+
+      - name: Resolve Asia/Singapore report date
+        id: report
+        env:
+          REQUESTED_REPORT_DATE: ${{ inputs.report_date }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CURRENT_LAYER=Initialize" >> "$GITHUB_ENV"
+          requested=${REQUESTED_REPORT_DATE:-}
+          if [[ -n "$requested" ]]; then
+            report_date="$requested"
+          else
+            report_date=$(TZ=Asia/Singapore date +%F)
+          fi
+          python -c 'import datetime,sys; value=sys.argv[1]; assert datetime.date.fromisoformat(value).isoformat() == value' "$report_date"
+          report_year=${report_date%%-*}
+          remainder=${report_date#*-}
+          report_month=${remainder%%-*}
+          report_path="docs/$report_year/$report_month/$report_date.md"
+          staging_path="$RUNNER_TEMP/$report_date.md"
+          base_sha=$(git rev-parse HEAD)
+          {
+            echo "date=$report_date"
+            echo "year=$report_year"
+            echo "month=$report_month"
+            echo "report_path=$report_path"
+            echo "staging_path=$staging_path"
+            echo "base_sha=$base_sha"
+          } >> "$GITHUB_OUTPUT"
+          echo "Report date: $report_date" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check for an existing formal report
+        id: existing
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CURRENT_LAYER=Validate" >> "$GITHUB_ENV"
+          if [[ -f '${{ steps.report.outputs.report_path }}' ]]; then
+            python scripts/validate_daily.py \
+              --date '${{ steps.report.outputs.date }}' \
+              --input '${{ steps.report.outputs.report_path }}'
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "Existing validated archive found; Generate, Import, Commit, and Push are idempotently skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate one researched Markdown draft
+        if: steps.existing.outputs.present == 'false'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CURRENT_LAYER=Generate" >> "$GITHUB_ENV"
+          [[ -n "${OPENAI_API_KEY:-}" ]] || { echo "OPENAI_API_KEY secret is unavailable" >&2; exit 1; }
+          python scripts/generate_daily.py \
+            --date '${{ steps.report.outputs.date }}' \
+            --prompt prompts/daily_market_report.md \
+            --output '${{ steps.report.outputs.staging_path }}' \
+            --model "$OPENAI_MODEL"
+          echo "Generate: completed with Responses API and Web Search." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate generated draft
+        if: steps.existing.outputs.present == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CURRENT_LAYER=Validate" >> "$GITHUB_ENV"
+          python scripts/validate_daily.py \
+            --date '${{ steps.report.outputs.date }}' \
+            --input '${{ steps.report.outputs.staging_path }}'
+          echo "Validate: passed fail-closed quality gate." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Import validated draft deterministically
+        if: steps.existing.outputs.present == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CURRENT_LAYER=Import" >> "$GITHUB_ENV"
+          python scripts/import_daily.py \
+            --date '${{ steps.report.outputs.date }}' \
+            --input '${{ steps.report.outputs.staging_path }}'
+          test -f '${{ steps.report.outputs.report_path }}'
+          python scripts/validate_daily.py \
+            --date '${{ steps.report.outputs.date }}' \
+            --input '${{ steps.report.outputs.report_path }}'
+          echo "Import: report and generated navigation updated." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build MkDocs strictly
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CURRENT_LAYER=Build" >> "$GITHUB_ENV"
+          mkdocs build --strict
+          echo "Build: mkdocs build --strict passed." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit deterministic archive changes
+        id: commit
+        if: steps.existing.outputs.present == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CURRENT_LAYER=Commit" >> "$GITHUB_ENV"
+          git diff --check
+          python - <<'PY'
+          import re
+          import subprocess
+          allowed = re.compile(
+              r"^(mkdocs\.yml|docs/(index|archive)\.md|"
+              r"docs/\d{4}/index\.md|docs/\d{4}/\d{2}/index\.md|"
+              r"docs/\d{4}/\d{2}/\d{4}-\d{2}-\d{2}\.md)$"
+          )
+          changed = subprocess.check_output(
+              ["git", "diff", "--name-only", "-z"]
+          ).decode().split("\0")
+          unexpected = sorted(path for path in changed if path and not allowed.fullmatch(path))
+          if unexpected:
+              raise SystemExit("unexpected importer change(s): " + ", ".join(unexpected))
+          if not any(changed):
+              raise SystemExit("import produced no changes for an absent formal report")
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- docs mkdocs.yml
+          git diff --cached --check
+          git commit -m "Import market daily ${{ steps.report.outputs.date }}"
+          commit_sha=$(git rev-parse HEAD)
+          echo "sha=$commit_sha" >> "$GITHUB_OUTPUT"
+          echo "Commit: $commit_sha" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push and verify remote SHA
+        if: steps.existing.outputs.present == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CURRENT_LAYER=Push" >> "$GITHUB_ENV"
+          git fetch --no-tags origin main
+          remote_before=$(git rev-parse origin/main)
+          [[ "$remote_before" == '${{ steps.report.outputs.base_sha }}' ]] || {
+            echo "origin/main changed during generation; refusing non-fast-forward publication" >&2
+            exit 1
+          }
+          git push origin HEAD:main
+          remote_after=$(git ls-remote origin refs/heads/main | awk '{print $1}')
+          [[ "$remote_after" == '${{ steps.commit.outputs.sha }}' ]] || {
+            echo "remote main SHA does not match generated commit" >&2
+            exit 1
+          }
+          echo "Push: remote SHA verified as $remote_after." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dispatch and wait for Pages deployment
+        if: steps.existing.outputs.present == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CURRENT_LAYER=Deploy" >> "$GITHUB_ENV"
+          commit_sha='${{ steps.commit.outputs.sha }}'
+          run_id=""
+          for _attempt in {1..6}; do
+            run_id=$(gh run list \
+              --workflow deploy-pages.yml \
+              --branch main \
+              --commit "$commit_sha" \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId // empty')
+            [[ -n "$run_id" ]] && break
+            sleep 5
+          done
+          if [[ -z "$run_id" ]]; then
+            gh workflow run deploy-pages.yml --ref main
+          fi
+          for _attempt in {1..24}; do
+            run_id=$(gh run list \
+              --workflow deploy-pages.yml \
+              --branch main \
+              --commit "$commit_sha" \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId // empty')
+            [[ -n "$run_id" ]] && break
+            sleep 5
+          done
+          [[ -n "$run_id" ]] || { echo "Pages workflow did not appear for $commit_sha" >&2; exit 1; }
+          gh run watch "$run_id" --exit-status --interval 5
+          echo "Deploy: Pages workflow run $run_id succeeded." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify final daily page
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CURRENT_LAYER=Verify" >> "$GITHUB_ENV"
+          report_url="https://leemin-blip.github.io/market-daily-archive/${{ steps.report.outputs.year }}/${{ steps.report.outputs.month }}/${{ steps.report.outputs.date }}/"
+          python scripts/verify_daily_page.py \
+            --date '${{ steps.report.outputs.date }}' \
+            --report '${{ steps.report.outputs.report_path }}' \
+            --url "$report_url"
+          echo "Verify: $report_url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report blocked layer
+        if: failure()
+        shell: bash
+        run: |
+          echo "## Result: failed closed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Blocked layer: $CURRENT_LAYER" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report success
+        if: success()
+        shell: bash
+        run: |
+          echo "## Result: complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "The same validated Markdown is the formal Archive source for all later outputs." >> "$GITHUB_STEP_SUMMARY"
