@@ -13,7 +13,7 @@ title: 首页
 - [打开全部日报](archive.md)
 - [进入 2026 年档案](2026/index.md)
 <!-- BEGIN AUTO-GENERATED LATEST LINK -->
-- [查看最新日报](2026/08/2026-08-31.md)
+- [查看最新日报](2026/09/2026-09-01.md)
 <!-- END AUTO-GENERATED LATEST LINK -->
 - [使用日报模板](maintenance/daily-template.md)
 
@@ -22,6 +22,7 @@ title: 首页
 <!-- BEGIN AUTO-GENERATED DAILY TABLE -->
 | 日期 | 状态 | 入口 |
 | --- | --- | --- |
+| 2026-09-01 | 油价与长端美债收益率同步上行压低风险偏好，但 Nvidia、Tesla 和半导体板块托住 Nasdaq | [阅读](2026/09/2026-09-01.md) |
 | 2026-08-31 | 休市版：拉腊克岛冲突推动原油早盘跳涨，贸易政策与通胀风险进入新一周定价 | [阅读](2026/08/2026-08-31.md) |
 | 2026-08-30 | 周末版美股市场日报：美联储加息预期、美债、日元、能源与 AI 产业动态 | [阅读](2026/08/2026-08-30.md) |
 <!-- END AUTO-GENERATED DAILY TABLE -->
