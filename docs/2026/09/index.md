@@ -7,6 +7,7 @@ title: 2026 年 09 月
 ## 日报
 
 <!-- BEGIN AUTO-GENERATED DAILY LIST -->
+- [2026-09-02](2026-09-02.md) — 油价突破 90 美元、全球债券继续抛售且 Fed 加息预期升温，长久期科技与小盘股承压，市场进入能源通胀与利率再定价主导的风险阶段。
 - [2026-09-01](2026-09-01.md) — 油价与长端美债收益率同步上行压低风险偏好，但 Nvidia、Tesla 和半导体板块托住 Nasdaq
 <!-- END AUTO-GENERATED DAILY LIST -->
 

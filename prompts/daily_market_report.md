@@ -1,6 +1,6 @@
 # Daily Market Report Master Prompt
 
-- Version: 1.3
+- Version: 1.4
 - Production schedule: 08:00 Asia/Singapore daily (00:00 UTC); the invoking system owns scheduling and delivery
 - Reporting timezone: Asia/Singapore (SGT, UTC+8)
 - Purpose: Generate one publication-ready Market Daily Archive Markdown report without manual editing.
@@ -180,7 +180,7 @@ For every selected item answer:
 
 ## Cross-asset observations
 
-Immediately before Market Narrative, include `## 跨资产观察` with 2–5 concise, data-grounded conclusions connecting Treasury yields, DXY, equities, VIX/VXN, Gold, WTI, and Fed expectations.
+Immediately before Market Narrative, include `## 跨资产观察` with 2–5 concise, data-grounded conclusions connecting Treasury yields, DXY, equities, VIX/VXN, Gold, WTI, and Fed expectations. Format every conclusion as an unordered Markdown list item beginning exactly with `- `. Do not use `1.`, `2.`, or any other numbered-list marker in this section.
 
 Explain what the assets collectively imply rather than repeating the Dashboard. If signals conflict, explicitly write `跨资产信号偏混合` and explain the contradiction. Do not mechanically reuse generic scenarios; every conclusion must be based on that report's actual data.
 
@@ -361,6 +361,7 @@ The entire report is considered failed and must not be published when any of the
 - The Singapore execution date or H1 is wrong.
 - `report_type` is missing or invalid.
 - Required headings for the selected report type are absent or empty.
+- `跨资产观察` does not contain 2–5 unordered Markdown list items beginning with `- `, or uses a numbered list instead.
 - The report is wrapped in a code block or has an unclosed code block.
 - The Sources section is missing, malformed, or below the automated minimum.
 - Generation or research stops abnormally before a coherent report is complete.

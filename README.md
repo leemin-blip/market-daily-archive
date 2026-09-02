@@ -10,6 +10,16 @@
 
 ## 本地预览
 
+日常阅读可直接点击：
+
+```text
+macos/打开 Market Daily Archive.app
+```
+
+App 会检查 `http://127.0.0.1:8000/` 是否确实属于 Market Daily Archive。已运行时直接打开浏览器；未运行时在后台启动本项目的 MkDocs，等待页面验证成功后再打开。它不会重复启动第二个服务，也不会把占用 8000 的其他程序误认为 Archive。整个过程不需要 Terminal，App 退出后本地网站继续运行。
+
+首次安装或项目路径、Python/MkDocs 环境变化后，运行一次 `./scripts/install_macos_launcher.sh` 会同时重建两个本机 App。命令行备用方式仍为：
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
@@ -27,9 +37,27 @@ mkdocs build --strict
 
 ## V2 自动入库
 
-正式日报生成规则保存在唯一真源 [`prompts/daily_market_report.md`](prompts/daily_market_report.md)。Plan B 使用 GitHub Actions 在 00:00 UTC（08:00 Asia/Singapore）调用 OpenAI Responses API + Web Search，一次生成唯一 Markdown，再经过既有 Validator、确定性入库器和 Pages 发布链路。
+正式日报生成规则保存在唯一真源 [`prompts/daily_market_report.md`](prompts/daily_market_report.md)。当前推荐最低复杂度流程是：ChatGPT 只生成一次完整 Markdown，然后使用下方 Mac 一键 App。需要诊断时仍可运行命令行备用入口：
 
-正式 cron 在首次真实 `workflow_dispatch` 全链路验收前由 repository variable `MARKET_DAILY_CRON_ENABLED` 门控。API 凭证只使用 GitHub repository secret `OPENAI_API_KEY`，不得写入仓库。
+```bash
+pbpaste | ./scripts/import_chatgpt_daily.sh
+```
+
+该入口只在本机接收现有内容，依次执行 Extract、白名单 Normalize、日期检查、Validator、确定性 importer 与 `mkdocs build --strict`。它不调用 AI 或 OpenAI API，也不 commit、push 或发布；完成后可点击“打开 Market Daily Archive”在本地浏览和搜索。
+
+### Mac 一键归档
+
+仓库已提供并在本机生成原生 App：
+
+```text
+macos/归档今日日报.app
+```
+
+把 App 拖到 Dock 后，日常操作只有：**使用 ChatGPT 日报消息自带的“复制”按钮复制完整回复 → 点击“归档今日日报”**。App 优先从唯一 YAML `title: YYYY-MM-DD 市场日报` 定位正文，缺少可用 YAML 时才使用唯一精确 H1；日报前的 ChatGPT 说明文字会被忽略。之后只允许白名单 normalizer 把安全、连续的跨资产编号列表 marker 转成 `- `，条目内容和其余字节不变。多候选或不安全结构会 fail-closed，Validator 和同日防覆盖规则不变。成功会通知“今日日报已成功归档”，失败会显示简短原因，不打开 Terminal。完整的最近一次运行记录保存在 Git 忽略的 `inbox/.archive-today-last-run.log`，仅用于本机故障诊断。
+
+两个 App 都是本机生成文件，不进入 Git，统一位于 `macos/`。需要重建时运行一次 `./scripts/install_macos_launcher.sh`；日常使用不需要运行安装命令。
+
+GitHub Actions + OpenAI API 的 Plan B 代码继续保留，但 cron 保持门控且未启用。两个 Mac App 与真实“复制回复”归档链路均已验收，项目进入稳定使用观察期；现有定时任务保持原样，不修改或暂停。
 
 发布前先执行 fail-closed 完整性校验：
 

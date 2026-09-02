@@ -4,6 +4,7 @@ __pycache__/
 site/
 .cache/
 inbox/
+macos/*.app/
 
 # Never commit local configuration or credentials
 .env
