@@ -153,6 +153,22 @@ class ValidateDailyTests(unittest.TestCase):
         with self.assertRaises(ValidationFailure):
             validate_report(report_body()[:700], "2026-09-01")
 
+    def test_rejects_source_names_and_titles_without_urls(self) -> None:
+        names_only = report_body().replace(
+            "- [Federal Reserve](https://www.federalreserve.gov/)\n"
+            "- [U.S. Treasury](https://home.treasury.gov/)\n"
+            "- [BLS](https://www.bls.gov/)\n",
+            "- Federal Reserve\n"
+            "- Reuters — Markets close higher after economic data\n"
+            "- BLS — Employment Situation\n",
+        )
+
+        with self.assertRaisesRegex(
+            ValidationFailure,
+            r"Sources has 0 HTTPS Markdown link\(s\); minimum is 3 for trading_day",
+        ):
+            validate_report(names_only, "2026-09-01")
+
     def test_rejects_old_spread_label_and_missing_new_dashboard_core(self) -> None:
         with self.assertRaises(ValidationFailure):
             validate_report(

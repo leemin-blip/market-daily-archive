@@ -47,9 +47,19 @@ class MacOSLauncherTests(unittest.TestCase):
     def test_master_prompt_requires_unordered_cross_asset_bullets(self) -> None:
         prompt = PROMPT.read_text(encoding="utf-8")
 
-        self.assertIn("Version: 1.4", prompt)
+        self.assertIn("Version: 1.5", prompt)
         self.assertIn("unordered Markdown list item beginning exactly with `- `", prompt)
         self.assertIn("Do not use `1.`, `2.`, or any other numbered-list marker", prompt)
+
+    def test_master_prompt_requires_real_https_markdown_sources(self) -> None:
+        prompt = PROMPT.read_text(encoding="utf-8")
+
+        self.assertIn("[Source name or article title](https://...)", prompt)
+        self.assertIn("must contain at least 3 such real HTTPS Markdown links", prompt)
+        self.assertIn("does not count as a source without its URL", prompt)
+        self.assertIn("Never invent, guess, reconstruct, or concatenate a URL", prompt)
+        self.assertIn("actually accessed during this report's research", prompt)
+        self.assertIn("generation has failed", prompt)
 
     def test_installer_builds_ignored_app_next_to_source(self) -> None:
         installer = INSTALLER.read_text(encoding="utf-8")

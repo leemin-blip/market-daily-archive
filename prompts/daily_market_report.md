@@ -1,6 +1,6 @@
 # Daily Market Report Master Prompt
 
-- Version: 1.4
+- Version: 1.5
 - Production schedule: 08:00 Asia/Singapore daily (00:00 UTC); the invoking system owns scheduling and delivery
 - Reporting timezone: Asia/Singapore (SGT, UTC+8)
 - Purpose: Generate one publication-ready Market Daily Archive Markdown report without manual editing.
@@ -217,7 +217,23 @@ High-quality financial media may include Reuters, Bloomberg, Financial Times, Wa
 - Never present inference as reported fact.
 - If no clear cause is found, write `暂未发现单一明确催化剂。`
 - Prefer original reporting and official sources over search pages, aggregators, low-quality blogs, or unverifiable social media.
-- Use HTTPS Markdown links that work in MkDocs.
+
+Treat the following as a hard output contract for `## 🔗 Sources`:
+
+- Every entry intended to count as a source must use standard Markdown link syntax exactly in the form `[Source name or article title](https://...)`, with a real HTTPS target that was actually accessed during this report's research and is suitable for a reader to open.
+- A `trading_day` report must contain at least 3 such real HTTPS Markdown links in `## 🔗 Sources`.
+- A provider name by itself, such as `Reuters`, `AP`, `BLS`, `Federal Reserve`, or `U.S. Treasury`, does not count as a source without its URL.
+- An article or document title by itself does not count as a source without its URL.
+- Bare URLs, HTML links, rich-text citation remnants, and non-HTTPS targets do not satisfy this Markdown-link requirement.
+- Never invent, guess, reconstruct, or concatenate a URL to satisfy the count. Prefer the exact source URLs actually opened during research.
+
+Before returning a complete report, perform this source preflight check:
+
+1. Confirm that `## 🔗 Sources` exists.
+2. For `trading_day`, count at least 3 entries matching `[title](https://...)`.
+3. Confirm that every counted URL came from a source actually accessed during this report's research, not from model inference.
+
+If at least 3 real HTTPS source links cannot be obtained for a `trading_day` report, generation has failed. Do not output a publication-shaped complete report that will fail Archive validation; instead, explicitly report the generation failure.
 
 ## Normal trading-day output structure
 
@@ -363,7 +379,7 @@ The entire report is considered failed and must not be published when any of the
 - Required headings for the selected report type are absent or empty.
 - `跨资产观察` does not contain 2–5 unordered Markdown list items beginning with `- `, or uses a numbered list instead.
 - The report is wrapped in a code block or has an unclosed code block.
-- The Sources section is missing, malformed, or below the automated minimum.
+- The Sources section is missing or malformed, or a `trading_day` report has fewer than 3 real HTTPS Markdown links from sources actually accessed during research.
 - Generation or research stops abnormally before a coherent report is complete.
 
 When the report is failed, stop. Do not call the publishing script and do not create a Git commit merely to satisfy the schedule.

@@ -438,10 +438,10 @@ market-daily/
 - 已通过原 ChatGPT 聊天的任务管理入口，将曾被改名的原云端任务恢复为「美股市场日报」并启用；回读确认日历时区明确为 Asia/Singapore，每天 08:00。默认时区元数据仍为 Asia/Shanghai，实际触发使用日历中显式指定的 Asia/Singapore；原通知和邮件偏好未改。没有新建任务，本地 heartbeat 保持原样。
 - Isolated GitHub write canary 已完成：ChatGPT Cloud 一次性任务产生完成记录，但隔离分支 SHA 未前进、目标文件为 404，方案 A 未通过且未触碰 main、Pages 或两个正式任务。
 - Plan B 仓库实现已完成：Responses API + Web Search 唯一生成器、runner 临时 staging、`generate-daily.yml`、既有 Validator/importer、strict build、受限提交、远程 SHA、Pages dispatch 与最终页面正文验证。
-- Master Prompt 升级至 1.4，保持交付中立的一次 canonical Markdown 规范，并明确 `跨资产观察` 的 2–5 条结论必须逐条使用 `- ` 无序 Markdown 项目符号，禁止编号列表。
+- Master Prompt 升级至 1.5：保持交付中立的一次 canonical Markdown 规范，继续强制 `跨资产观察` 使用 `- `，并将 trading-day 至少 3 个来自实际研究、可访问目标的标准 HTTPS Markdown 来源链接设为生成前硬性自检；只有来源名称或标题而无 URL 不计数，无法取得真实链接时必须报告生成失败。
 - 生成 workflow 已配置 `0 0 * * *`、固定 concurrency group 与八层 fail-closed Summary；真实手动验收前由 `MARKET_DAILY_CRON_ENABLED` 门控，不会直接接管每日生产。
 - 手动恢复口令在缺失日报时优先要求复用 ChatGPT 聊天中已有 Markdown；不自动 dispatch Plan B，也不在本地生成第二份日报。
-- 当前完整回归 92 项自动测试与 `mkdocs build --strict` 已通过；测试覆盖 ChatGPT 边界提取、白名单 Normalize、Validator/Importer/恢复链路，以及本地 MkDocs 的正确页面复用、其他端口占用拒绝、启动就绪竞态、同源重定向约束和单实例行为。
+- 当前完整回归 94 项自动测试与 `mkdocs build --strict` 已通过；测试覆盖 ChatGPT 边界提取、白名单 Normalize、来源链接硬约束、Validator/Importer/恢复链路，以及本地 MkDocs 的正确页面复用、其他端口占用拒绝、启动就绪竞态、同源重定向约束和单实例行为。
 - 新增本地半自动入口 `scripts/import_chatgpt_daily.sh`：直接消费 ChatGPT 已生成的完整 Markdown，安全写入 gitignored inbox，复用 Validator 和 deterministic importer，并执行 strict build；不调用 AI/API、Git 或 GitHub。
 - 半自动入口的自动测试覆盖成功导入、空输入、同内容幂等、inbox/Archive 内容冲突、Validator fail-closed、日期不一致和构建失败。
 - Plan B 代码保留但不启用：不设置 `OPENAI_API_KEY`、不 dispatch Generate workflow，cron 门控保持关闭；两个现有任务均未修改或暂停。
@@ -472,6 +472,10 @@ market-daily/
 运行条件：当前一键入口需要 Mac、本地仓库、Python 3、MkDocs 和用户把完整聊天日报复制到剪贴板；App 可直接双击或拖入 Dock，不需要 Terminal、OpenAI API、GitHub 网络或凭证。Plan B 的历史运行条件保留在维护文档中，但当前不启用。
 
 ## 10. Change Log
+
+### 2026-09-03
+
+- 真实日报因 Sources 只有来源名称和文章标题、整篇没有任何 URL 而被 Validator 正确拒绝。Master Prompt 升级至 1.5，在既有 Source rules 内明确 trading-day 至少 3 个 `[标题](https://...)`、URL 必须来自本次实际研究、无 URL 的名称或标题不计数、不得猜测链接，并要求输出完整日报前自检；Extract、Normalize、Validator、Importer 与失败 draft 均未修改。
 
 ### 2026-09-02
 
