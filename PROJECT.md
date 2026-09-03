@@ -91,6 +91,7 @@ market-daily/
 │   ├── import_chatgpt_daily.sh
 │   ├── extract_chatgpt_daily.py
 │   ├── normalize_daily.py
+│   ├── recover_rejected_draft.py
 │   ├── open_local_archive.py
 │   ├── install_macos_launcher.sh
 │   ├── publish_daily.sh
@@ -153,7 +154,7 @@ market-daily/
 - 每条外部信息应尽可能保留原始来源链接。
 - 自动入库要求首个 H1 包含同一 ISO 日期，且正文至少保留一个 HTTPS Markdown 来源链接。
 - 新日报由入库工具同步加入 `mkdocs.yml`、首页、对应年/月索引和总档案页；自动生成区块不手工修改。
-- 同日期相同内容可安全重复运行；同日期不同内容必须拒绝覆盖并转人工检查。
+- 同日期相同内容可安全重复运行；同日期不同内容默认拒绝覆盖。唯一自动恢复例外是正式 Archive 不存在、新稿通过当前 Validator、旧 inbox 被同一 Validator 明确判定失败；旧稿必须先无覆盖地保存在 `inbox/rejected/`，任何无法证明的情况都 fail-closed。
 - 正式 Master Prompt 位于 `prompts/daily_market_report.md`，普通日报运行不得自行修改。
 - 每篇自动日报必须声明 `report_type: trading_day` 或 `report_type: market_closed`，并在入库、提交和推送前通过 fail-closed 完整性校验；恢复流程可先查询 Git 状态，但不得据此跳过已有内容的校验。
 - 单个非关键数据暂缺可以明确标注后继续；整篇为空、截断、日期错误或关键结构缺失必须停止发布。
@@ -162,6 +163,7 @@ market-daily/
 - Mac 日常入口为 `macos/归档今日日报.app`：只负责读取剪贴板、定位项目并调用上述脚本；不复制 Validator/importer 逻辑。
 - 本地阅读入口为 `macos/打开 Market Daily Archive.app`：复用或后台启动唯一的本地 MkDocs 服务，验证页面身份后打开默认浏览器；不修改日报或运行入库流程。
 - App 剪贴板边界解析优先使用唯一 YAML 日报标题，精确 H1 仅作兜底；只剥离起点前的 ChatGPT 包装文字。入库前仅允许白名单 normalizer 将唯一 `跨资产观察` 中 2–5 个从 1 开始连续、顶格、单行的 `N. ` marker 转为 `- `；条目内容与其余字节保持不变。歧义或不安全结构 fail-closed，Validator 不放宽。
+- 失败草稿恢复仍复用同一入口：新稿必须先完成 Extract、Normalize 和 Validator；只有旧 inbox 被当前 Validator 明确拒绝且正式 Archive 不存在时，才按 `YYYY-MM-DD-rejected-NNN.md` 排他保留旧稿并继续入库。新稿失败、旧稿有效、读取/Validator 异常或已有 Archive 均不得替换。
 
 ## 6. Roadmap
 
@@ -208,6 +210,7 @@ market-daily/
 - [x] 新增剪贴板半自动入口：stdin → inbox → Validator → deterministic importer → strict build
 - [x] 新增 macOS 原生一键 App：复制完整日报后单击归档，无需打开 Terminal
 - [x] 增加 Validator 前的白名单 Markdown normalizer，仅处理可证明安全的跨资产列表 marker 差异
+- [x] 增加失败草稿安全恢复，并用 `2026-09-03` 真实生成质量故障完成用户验收（Accepted）
 - [x] 新增“打开 Market Daily Archive”原生 App，并完成后台服务、页面身份和单实例真实验收（Accepted）
 - [x] 完成“ChatGPT 复制回复 → 归档今日日报 App → Extract → Normalize → Validator → Import → MkDocs”真实使用验收（Accepted）
 - [ ] （Deferred）如未来明确重新启用 Plan B，再设置 secret、验收 workflow 并开启 cron
@@ -339,6 +342,13 @@ market-daily/
 - **Date**：2026-09-02
 - **Impact**：安装器同时编译两个 App，并嵌入安装时已验证的 Python/MkDocs 绝对路径。只允许同主机同端口的 MkDocs 本地重定向；其他占用 fail-closed。App 退出后 MkDocs 保持后台运行，日志、PID 和锁都留在 Git 忽略的 inbox；该入口不调用 AI/API、Importer、Git 或外部网络。
 
+### Decision 018 — 只允许当前 Validator 已证明失败的 inbox 草稿被恢复
+
+- **Decision**：保留同日期不同内容默认拒绝规则；仅当正式 Archive 不存在、新候选稿先通过当前 Validator、旧 inbox 由同一 Validator 明确抛出 `ValidationFailure` 时，允许自动恢复。替换前将旧稿按 `inbox/rejected/YYYY-MM-DD-rejected-NNN.md` 排他保存，复核旧稿字节未变化后再原子替换。
+- **Reason**：真实日报的生成端质量问题可能在同一天修复，失败草稿若永久占据 inbox 会阻断合法重试；同时，Validator 运行异常、读取失败或旧稿仍有效都不能被误当成“已拒绝”。
+- **Date**：2026-09-03
+- **Impact**：日常 App 和命令行继续共用 `import_chatgpt_daily.sh`，不新增人工删除步骤。新稿失败不改变旧稿；正式 Archive 已存在、旧稿有效或失败无法证明时继续 fail-closed。rejected 历史不进入 Git，序号碰撞只会选择下一个名称，永不覆盖已有审计记录。Validator、Normalizer、Extract 与 Importer 本身不变。
+
 ## 8. Project Maintenance Rules / 项目维护规则
 
 本章节是所有后续 Market Daily Archive 开发工作的固定维护约定。
@@ -441,7 +451,7 @@ market-daily/
 - Master Prompt 升级至 1.5：保持交付中立的一次 canonical Markdown 规范，继续强制 `跨资产观察` 使用 `- `，并将 trading-day 至少 3 个来自实际研究、可访问目标的标准 HTTPS Markdown 来源链接设为生成前硬性自检；只有来源名称或标题而无 URL 不计数，无法取得真实链接时必须报告生成失败。
 - 生成 workflow 已配置 `0 0 * * *`、固定 concurrency group 与八层 fail-closed Summary；真实手动验收前由 `MARKET_DAILY_CRON_ENABLED` 门控，不会直接接管每日生产。
 - 手动恢复口令在缺失日报时优先要求复用 ChatGPT 聊天中已有 Markdown；不自动 dispatch Plan B，也不在本地生成第二份日报。
-- 当前完整回归 94 项自动测试与 `mkdocs build --strict` 已通过；测试覆盖 ChatGPT 边界提取、白名单 Normalize、来源链接硬约束、Validator/Importer/恢复链路，以及本地 MkDocs 的正确页面复用、其他端口占用拒绝、启动就绪竞态、同源重定向约束和单实例行为。
+- 当前完整回归 98 项自动测试与 `mkdocs build --strict` 已通过；测试覆盖 ChatGPT 边界提取、白名单 Normalize、来源链接硬约束、Validator/Importer/恢复链路，以及本地 MkDocs 的正确页面复用、其他端口占用拒绝、启动就绪竞态、同源重定向约束和单实例行为。
 - 新增本地半自动入口 `scripts/import_chatgpt_daily.sh`：直接消费 ChatGPT 已生成的完整 Markdown，安全写入 gitignored inbox，复用 Validator 和 deterministic importer，并执行 strict build；不调用 AI/API、Git 或 GitHub。
 - 半自动入口的自动测试覆盖成功导入、空输入、同内容幂等、inbox/Archive 内容冲突、Validator fail-closed、日期不一致和构建失败。
 - Plan B 代码保留但不启用：不设置 `OPENAI_API_KEY`、不 dispatch Generate workflow，cron 门控保持关闭；两个现有任务均未修改或暂停。
@@ -457,6 +467,7 @@ market-daily/
 - **Accepted**：`ChatGPT 复制回复 → 归档今日日报.app → Extract → Normalize → Validator → Import → MkDocs` 已通过真实日报与真实 App 使用验收。
 - **Accepted**：`打开 Market Daily Archive.app → 复用/启动单一本地 MkDocs → 验证页面身份 → 默认浏览器打开` 已通过真实双击与单实例验收。
 - 当前推荐日常操作固定为“复制回复 → 点击归档 App → 点击打开 Archive App”；进入稳定使用观察期，只记录并修复真实故障，不继续增加功能。
+- **Accepted**：`2026-09-03` 真实日报先因 Sources 缺少 URL 被 Validator 拒绝；生成端按 Master Prompt 1.5 修复后，用户通过真实“复制回复 → 归档今日日报.app”完成安全恢复。旧失败稿保留在 rejected history，正式 Archive 只有一个版本且通过 Validator；普通同日内容冲突仍拒绝。
 
 尚未完成：
 
@@ -475,6 +486,7 @@ market-daily/
 
 ### 2026-09-03
 
+- 新增失败草稿安全恢复：新稿先通过原 Validator，旧 inbox 必须被同一 Validator 明确拒绝且正式 Archive 不存在；旧稿按排他递增序号保存在 gitignored `inbox/rejected/` 后才允许替换。`2026-09-03` 真实用户流程已完成验收：旧失败稿完整保留、新稿通过 Validator 并生成唯一正式 Archive。新稿失败、旧稿有效、无法证明失败、历史名称碰撞或已有 Archive 均 fail-closed；Extract、Normalize、Validator、Importer 与定时任务不变。
 - 真实日报因 Sources 只有来源名称和文章标题、整篇没有任何 URL 而被 Validator 正确拒绝。Master Prompt 升级至 1.5，在既有 Source rules 内明确 trading-day 至少 3 个 `[标题](https://...)`、URL 必须来自本次实际研究、无 URL 的名称或标题不计数、不得猜测链接，并要求输出完整日报前自检；Extract、Normalize、Validator、Importer 与失败 draft 均未修改。
 
 ### 2026-09-02

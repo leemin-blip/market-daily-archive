@@ -28,6 +28,7 @@ class ImportChatGPTDailyTests(unittest.TestCase):
             "import_chatgpt_daily.sh",
             "import_daily.py",
             "normalize_daily.py",
+            "recover_rejected_draft.py",
             "validate_daily.py",
         ):
             shutil.copy2(SOURCE_ROOT / "scripts" / name, self.repo / "scripts" / name)
@@ -120,6 +121,75 @@ class ImportChatGPTDailyTests(unittest.TestCase):
         self.assertFalse(self.archived.exists())
         self.assertFalse((self.repo / "mkdocs.args").exists())
         self.assertIn("Draft status: FAILED", result.stderr)
+        self.assertIn("still passes the current Validator", result.stderr)
+        self.assertFalse((self.repo / "inbox" / "rejected").exists())
+
+    def test_replaces_only_proven_invalid_draft_after_new_candidate_passes(self) -> None:
+        invalid = valid_report().replace("## 🧠 Market Narrative", "## 市场叙事")
+        self.draft.parent.mkdir(parents=True)
+        self.draft.write_text(invalid, encoding="utf-8")
+
+        result = self.run_import(valid_report())
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.draft.read_text(encoding="utf-8"), valid_report())
+        self.assertEqual(
+            self.archived.read_text(encoding="utf-8"), valid_report().rstrip() + "\n"
+        )
+        rejected = self.repo / "inbox" / "rejected" / f"{REPORT_DATE}-rejected-001.md"
+        self.assertEqual(rejected.read_text(encoding="utf-8"), invalid)
+        self.assertIn("Replacement candidate Validator status: PASSED", result.stdout)
+        self.assertIn("Rejected draft preserved:", result.stdout)
+
+    def test_invalid_replacement_does_not_overwrite_invalid_draft(self) -> None:
+        old_invalid = valid_report().replace(
+            "## 🧠 Market Narrative", "## 旧的市场叙事"
+        )
+        new_invalid = valid_report().replace(
+            "## 👀 What to Watch", "## 新的观察列表"
+        )
+        self.draft.parent.mkdir(parents=True)
+        self.draft.write_text(old_invalid, encoding="utf-8")
+
+        result = self.run_import(new_invalid)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.draft.read_text(encoding="utf-8"), old_invalid)
+        self.assertFalse(self.archived.exists())
+        self.assertFalse((self.repo / "inbox" / "rejected").exists())
+        self.assertIn("Validator status: FAILED", result.stderr)
+        self.assertIn("existing inbox draft was not changed", result.stderr)
+
+    def test_archived_date_blocks_recovery_and_preserves_everything(self) -> None:
+        first = self.run_import(valid_report())
+        old_draft = self.draft.read_bytes()
+        old_archive = self.archived.read_bytes()
+        different = valid_report().replace("当日市场主线摘要", "另一份市场主线摘要")
+
+        second = self.run_import(different)
+
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.assertNotEqual(second.returncode, 0)
+        self.assertEqual(self.draft.read_bytes(), old_draft)
+        self.assertEqual(self.archived.read_bytes(), old_archive)
+        self.assertFalse((self.repo / "inbox" / "rejected").exists())
+        self.assertIn("formal archive already exists", second.stderr)
+
+    def test_rejected_history_collision_uses_next_available_name(self) -> None:
+        invalid = valid_report().replace("## 🧠 Market Narrative", "## 市场叙事")
+        rejected_dir = self.repo / "inbox" / "rejected"
+        rejected_dir.mkdir(parents=True)
+        collision = rejected_dir / f"{REPORT_DATE}-rejected-001.md"
+        collision.write_text("existing audit record\n", encoding="utf-8")
+        self.draft.write_text(invalid, encoding="utf-8")
+
+        result = self.run_import(valid_report())
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(collision.read_text(encoding="utf-8"), "existing audit record\n")
+        next_backup = rejected_dir / f"{REPORT_DATE}-rejected-002.md"
+        self.assertEqual(next_backup.read_text(encoding="utf-8"), invalid)
+        self.assertIn(str(next_backup.relative_to(self.repo)), result.stdout)
 
     def test_validator_failure_leaves_draft_but_does_not_import(self) -> None:
         invalid = valid_report().replace("## 🧠 Market Narrative", "## 市场叙事")

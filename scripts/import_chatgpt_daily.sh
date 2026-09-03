@@ -138,7 +138,30 @@ if [[ -e "$draft_path" ]]; then
     rm -f "$temporary_input"
     temporary_input=""
   else
-    fail "Draft" "A different inbox/$report_date.md already exists; it was not overwritten."
+    if candidate_validator_output=$(python3 scripts/validate_daily.py \
+      --date "$report_date" --input "$temporary_input" 2>&1); then
+      echo "$candidate_validator_output"
+      echo "Replacement candidate Validator status: PASSED"
+    else
+      echo "$candidate_validator_output" >&2
+      candidate_reason=${candidate_validator_output##*$'\n'}
+      candidate_reason=${candidate_reason#ERROR: }
+      fail "Validator" "$candidate_reason The existing inbox draft was not changed."
+    fi
+
+    if recovery_output=$(python3 scripts/recover_rejected_draft.py \
+      --repo-root "$repo_root" \
+      --date "$report_date" \
+      --candidate "$temporary_input" 2>&1); then
+      echo "$recovery_output"
+      draft_status="recovered from a current-Validator-rejected draft"
+      temporary_input=""
+    else
+      echo "$recovery_output" >&2
+      recovery_reason=${recovery_output##*$'\n'}
+      recovery_reason=${recovery_reason#ERROR: }
+      fail "Draft" "$recovery_reason The existing inbox draft was not overwritten."
+    fi
   fi
 else
   if ! ln "$temporary_input" "$draft_path" 2>/dev/null; then

@@ -19,7 +19,19 @@ macos/归档今日日报.app
 
 把它拖到 Dock 后，每天只需：**使用 ChatGPT 日报消息自带的“复制”按钮复制完整回复 → 点击“归档今日日报”**。App 使用 macOS 内置 JXA/Standard Additions 读取 UTF-8 纯文本，并由 `scripts/extract_chatgpt_daily.py` 确定性定位日报边界：优先选择唯一 YAML `title: YYYY-MM-DD 市场日报`，没有合格 YAML 时才选择唯一精确 H1 `# YYYY-MM-DD 市场日报`。起点之前的 ChatGPT 说明文字被忽略；从日报起点到剪贴板末尾的原始字节先交给公共入库入口。多候选、代码块内候选或无法识别均 fail-closed，不会运行 importer。成功时通知“今日日报已成功归档”，失败对话框显示底层脚本返回的简短原因。最近一次完整 stdout/stderr、固定 PATH、shell 和退出码写入 Git 忽略的 `inbox/.archive-today-last-run.log`，便于定位 App 层故障；日志不进入 Archive 或 Git。
 
-公共链路为 `Extract → Normalize → Validator → Import`。边界提取器本身不改正文；`scripts/normalize_daily.py` 只有一个白名单：唯一 `跨资产观察` 的全部非空行必须恰好是 2–5 个从 1 开始连续、顶格、无续行的 `N. text`，此时只把 `N. ` 改为 `- `，内容、顺序、数字、来源及其余字节不变。已经合规的 Markdown 字节不变；混合列表、跳号、缩进、续行、数量越界或章节歧义在 Normalize 层停止。Validator 规则没有放宽，同日期不同内容也继续停在 Draft 层，禁止自动覆盖。
+公共链路为 `Extract → Normalize → Validator → Import`。边界提取器本身不改正文；`scripts/normalize_daily.py` 只有一个白名单：唯一 `跨资产观察` 的全部非空行必须恰好是 2–5 个从 1 开始连续、顶格、无续行的 `N. text`，此时只把 `N. ` 改为 `- `，内容、顺序、数字、来源及其余字节不变。已经合规的 Markdown 字节不变；混合列表、跳号、缩进、续行、数量越界或章节歧义在 Normalize 层停止。Validator 规则没有放宽，同日期不同内容默认继续停在 Draft 层。
+
+### 失败草稿恢复
+
+若同日旧 inbox 已被当前 Validator 明确拒绝，生成端修复后可直接再次复制并运行同一入口。恢复器只在以下条件全部成立时工作：
+
+1. 正式 `docs/YYYY/MM/YYYY-MM-DD.md` 不存在。
+2. 新复制正文已完成 Extract 与白名单 Normalize，并先通过当前 Validator。
+3. 旧 `inbox/YYYY-MM-DD.md` 可安全读取，且重新运行同一 Validator 后得到明确的 `ValidationFailure`。
+
+满足条件后，旧稿以 `inbox/rejected/YYYY-MM-DD-rejected-NNN.md` 保存；`NNN` 从 `001` 递增，并用排他创建保证已有历史永不覆盖。旧稿字节复核无变化且正式 Archive 仍不存在后，新稿才原子替换 inbox，并继续 Validator、Importer 与 strict build。
+
+若新稿也失败、旧稿仍通过 Validator、旧稿无法读取或 Validator 自身异常、正式 Archive 已存在，恢复立即停止；旧 inbox 和正式 Archive 都不会改变。无法证明失败不等于失败。`inbox/rejected/` 随整个 inbox 保持 Git 忽略，仅作为本机审计与人工恢复记录。
 
 编译后的 `.app` 是 gitignored 本机文件。源码保存在 `macos/archive_today.js`；首次安装或项目路径变化后，可由维护者运行一次：
 
@@ -52,7 +64,7 @@ pbpaste | ./scripts/import_chatgpt_daily.sh
 mkdocs serve
 ```
 
-即可在终端显示的本地地址浏览和全文搜索。若剪贴板中是同日期相同内容，命令可安全重跑；若 `inbox/` 或正式 Archive 已有同日期不同内容，会停止且不覆盖。Validator 或严格构建失败也会明确标出失败层；Validator 失败时不会开始正式入库。
+即可在终端显示的本地地址浏览和全文搜索。若剪贴板中是同日期相同内容，命令可安全重跑；同日期不同内容仅允许走上文严格限定的失败草稿恢复，其他情况继续停止且不覆盖。Validator 或严格构建失败也会明确标出失败层；Validator 失败时不会开始正式入库。
 
 当前两个既有定时任务保持原配置。两个 Mac App 与真实日报归档链路均已验收，项目进入稳定使用观察期，不修改或暂停现有任务。
 

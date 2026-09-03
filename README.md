@@ -45,6 +45,8 @@ pbpaste | ./scripts/import_chatgpt_daily.sh
 
 该入口只在本机接收现有内容，依次执行 Extract、白名单 Normalize、日期检查、Validator、确定性 importer 与 `mkdocs build --strict`。它不调用 AI 或 OpenAI API，也不 commit、push 或发布；完成后可点击“打开 Market Daily Archive”在本地浏览和搜索。
 
+同日不同内容默认仍拒绝覆盖。唯一自动恢复例外是：正式 Archive 尚不存在、新稿先通过当前 Validator、旧 inbox 再由同一 Validator 明确判定失败。此时旧稿会按不覆盖的递增序号保存在 Git 忽略的 `inbox/rejected/`，新稿才会替换 inbox 并继续入库。新稿失败、旧稿仍有效、旧稿无法读取或正式 Archive 已存在时都会 fail-closed。
+
 ### Mac 一键归档
 
 仓库已提供并在本机生成原生 App：
