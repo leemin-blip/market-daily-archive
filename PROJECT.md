@@ -31,20 +31,21 @@ GitHub Pages 阅读
 
 ### V2 – Automated Daily Ingestion
 
-核心目标：让每天生成的 ChatGPT 市场日报自动写入 Market Daily Archive，并完成可验证、可恢复、可重复执行的发布。
+核心目标：让云端按需生成的单份 ChatGPT 市场日报进入 Market Daily Archive，并完成可验证、可恢复、可重复执行的确定性归档与发布。
 
 - V2.1：自动创建日期文件并维护年 / 月 / 日导航与索引。
 - V2.2：自动构建、commit、push、部署并验证远程页面。
 - V2.3：月报；等待每日自动入库稳定运行后再开发。
 
-当前优先采用最低复杂度的半自动链路：ChatGPT 只生成一份完整 Markdown，用户复制后点击 `macos/归档今日日报.app`；原生 launcher 自动把剪贴板交给 `scripts/import_chatgpt_daily.sh`，完成 Validator、确定性入库和严格构建。命令行 `pbpaste` 入口作为诊断备用。Plan B 代码保留但不启用，两个旧任务暂不改动。
+当前采用“专用 ChatGPT Project + GitHub Master Prompt + 云端按需生成 + 本地确定性归档”：用户只在输入 `生成今日市场日报` 时触发云端研究；生成端在线读取 GitHub `main/prompts/daily_market_report.md`，本地不重复调用 AI。需要归档时，用户复制同一份日报并点击 `macos/归档今日日报.app`。Plan B 代码保留但不启用，旧定时生成路径停止。
 
 当前已验收的日常使用流程：
 
-1. 在 ChatGPT「美股市场日报」中点击“复制回复”。
-2. 点击 `macos/归档今日日报.app`，完成 `Extract → Normalize → Validator → Import → MkDocs`。
-3. 点击 `macos/打开 Market Daily Archive.app`，复用或启动本地 MkDocs，并在默认浏览器阅读和搜索。
-4. 普通日常归档只更新本地 Archive，不自动 commit / push；需要发布到 GitHub Pages 时另行明确执行发布流程。
+1. 在手机或 Mac 的专用 ChatGPT Project 中输入 `生成今日市场日报`；云端读取 GitHub 最新 Master Prompt 后研究并生成。
+2. 需要本地归档时，在 Mac 对同一份日报点击“复制回复”。
+3. 点击 `macos/归档今日日报.app`，完成确定性的剪贴板处理、Validator、Import 和 MkDocs 构建。
+4. 点击 `macos/打开 Market Daily Archive.app`，复用或启动本地 MkDocs，并在默认浏览器阅读和搜索。
+5. 普通日常归档只更新本地 Archive，不自动 commit / push；需要发布到 GitHub Pages 时另行明确执行发布流程。
 
 ### 暂不包含
 
@@ -61,12 +62,12 @@ GitHub Pages 阅读
 | 自动化 | GitHub Actions | 构建与部署 |
 | 托管 | GitHub Pages | 公开或私有可访问的网站 |
 | 日报入库 | Python 3 标准库 | 校验、去重、写入与导航生成 |
-| 日报生成 | ChatGPT「美股市场日报」 | 只生成一份完整 Markdown；本地链路不重复调用 AI |
+| 日报生成 | 专用 ChatGPT Project（云端按需） | 收到 `生成今日市场日报` 后读取 GitHub 最新 Master Prompt，只生成一份报告；本地不重复调用 AI |
 | 当前本地交接 | macOS 剪贴板 + Bash | `pbpaste` 把现有 Markdown 交给 Validator 和 importer |
 | Mac 日常入口 | JXA 编译的原生 `.app` | 一键归档剪贴板日报或启动并打开本地 MkDocs，不打开 Terminal |
 | 发布编排 | Bash / Git / GitHub CLI / curl | 构建、提交、推送与端到端验证 |
 | 保留的 Plan B | GitHub Actions + OpenAI Responses API | 代码保留；cron 门控，不设置 API Key，不启用 |
-| 现有任务 | ChatGPT / Codex 定时任务 | 当前保持原配置；稳定使用观察期不修改或暂停 |
+| 历史任务 | ChatGPT / Codex 定时任务 | 本机入库任务已暂停；正式云端日报任务不再作为启用的每日生成路径；临时任务与 canary 保持结束 / disabled |
 
 ## 4. 目标目录结构
 
@@ -158,7 +159,7 @@ market-daily/
 - 正式 Master Prompt 位于 `prompts/daily_market_report.md`，普通日报运行不得自行修改。
 - 每篇自动日报必须声明 `report_type: trading_day` 或 `report_type: market_closed`，并在入库、提交和推送前通过 fail-closed 完整性校验；恢复流程可先查询 Git 状态，但不得据此跳过已有内容的校验。
 - 单个非关键数据暂缺可以明确标注后继续；整篇为空、截断、日期错误或关键结构缺失必须停止发布。
-- V2 支持手动检查与故障恢复；自动 08:00 任务与手动恢复入口共用同一套幂等、Validator 和 fail-closed 规则。入口为 `./scripts/check_and_recover_daily.sh`，会话口令为“检查并补跑今日日报”。
+- V2 支持手动检查与故障恢复；按需生成与手动恢复入口继续共用同一套幂等、Validator 和 fail-closed 规则。入口为 `./scripts/check_and_recover_daily.sh`，会话口令为“检查并补跑今日日报”。
 - 当前推荐半自动入口为 `pbpaste | ./scripts/import_chatgpt_daily.sh`：只接收已生成 Markdown，不调用 AI/API、不 push；同日期相同内容幂等，不同内容拒绝覆盖。
 - Mac 日常入口为 `macos/归档今日日报.app`：只负责读取剪贴板、定位项目并调用上述脚本；不复制 Validator/importer 逻辑。
 - 本地阅读入口为 `macos/打开 Market Daily Archive.app`：复用或后台启动唯一的本地 MkDocs 服务，验证页面身份后打开默认浏览器；不修改日报或运行入库流程。
@@ -190,19 +191,19 @@ market-daily/
 
 #### V2.1 — 自动入库
 
-- [x] 固定每天设备本地时钟 08:00、每周 7 天运行；日报日期使用 Asia/Singapore
+- [x] （Historical / Superseded）曾固定每天设备本地时钟 08:00、每周 7 天运行；已由 Decision 019 改为云端按需触发
 - [x] 将 Daily Market Report Master Prompt 纳入 Git 版本管理
-- [x] 创建 Active 的 `Market Daily Archive 日报入库` 桌面端任务
+- [x] （Historical / Superseded）曾创建 Active 的 `Market Daily Archive 日报入库` 桌面端任务；已按 Decision 019 暂停但不删除
 - [x] 自动创建 `docs/YYYY/MM/YYYY-MM-DD.md`
 - [x] 自动维护首页、总档案、年/月索引与 MkDocs 导航
 - [x] 防止同一天不同内容重复导入，并支持相同内容幂等重跑
 - [x] 保留日报标题、正文结构和来源链接
 - [x] 增加发布前 fail-closed 完整性与来源校验
 - [x] 在首次无人值守运行前完成正式日报模板、Master Prompt 1.1 与 Validator 定版
-- [ ] 完成首次真实无人值守入库验收
+- [ ] （Cancelled by Decision 019）首次真实无人值守入库验收
 - [x] Master Prompt 1.2 区分云端聊天输出与本地归档职责，不改变已定版字段和质量要求
-- [x] 原「美股市场日报」云端任务恢复 Active，日历明确绑定每天 08:00 Asia/Singapore，仅保存动态读取 GitHub Prompt 的短指令
-- [ ] 验收首次云端定时运行实际读取最新版 Prompt 并完成聊天日报
+- [x] （Historical / Superseded）原「美股市场日报」云端任务曾恢复定时运行；已由 Decision 019 改为专用 ChatGPT Project 按需生成
+- [ ] （Cancelled by Decision 019）首次云端定时运行验收
 - [x] Canary 验证 ChatGPT Cloud Scheduled Task 未完成无人值守 GitHub 写入，放弃直接写仓库的方案 A
 - [x] 实现 Plan B Responses API 唯一生成器、Web Search 与 runner 临时 staging
 - [x] 新增 `generate-daily.yml`：08:00 SGT cron、手动 dispatch、并发串行、fail-closed 分层和确定性发布
@@ -213,6 +214,7 @@ market-daily/
 - [x] 增加失败草稿安全恢复，并用 `2026-09-03` 真实生成质量故障完成用户验收（Accepted）
 - [x] 新增“打开 Market Daily Archive”原生 App，并完成后台服务、页面身份和单实例真实验收（Accepted）
 - [x] 完成“ChatGPT 复制回复 → 归档今日日报 App → Extract → Normalize → Validator → Import → MkDocs”真实使用验收（Accepted）
+- [x] Master Prompt 1.6 改为云端按需触发及平台原生可点击来源契约；Archive Validator 保持不变
 - [ ] （Deferred）如未来明确重新启用 Plan B，再设置 secret、验收 workflow 并开启 cron
 
 #### V2.2 — 自动发布
@@ -222,7 +224,7 @@ market-daily/
 - [x] 验证最终线上日报页面并提供可恢复重跑路径
 - [x] 手动检查并补跑入口：识别阶段、复用草稿/提交、拒绝内容冲突、有限部署重试和逐层状态摘要
 - [x] 手动缺失日报优先复用聊天中已有 Markdown；Plan B dispatch 与本地第二次生成均不自动运行
-- [ ] 完成首次真实无人值守发布验收
+- [ ] （Cancelled by Decision 019）首次真实无人值守发布验收
 
 #### V2.3 — 月报
 
@@ -270,6 +272,7 @@ market-daily/
 - **Reason**：OpenAI 官方说明网页端定时任务不能直接操作本机目录，而桌面端项目级任务可以在本地项目中运行。把内容生成与确定性仓库操作分离，可以少依赖、避免仓库凭证、支持幂等重跑和逐步恢复。
 - **Date**：2026-08-30
 - **Impact**：电脑和 ChatGPT 桌面应用需在运行时保持可用，任务需获得最小必要的工作区与 GitHub 网络权限；普通运行必须读取版本化 Master Prompt。未来月报可以复用标准化日期文件，但在每日链路稳定前不得开发。
+- **Status**：Historical；日报生成方式已由 Decision 019 取代，本机定时任务保留历史但处于暂停状态。
 
 ### Decision 008 — 每天设备本地 08:00 调度，日报日期使用 Asia/Singapore
 
@@ -277,6 +280,7 @@ market-daily/
 - **Reason**：用户选择跟随设备本地时钟；当前实际执行时刻仍为 08:00 SGT，可在美国正常收盘后保留约 3–4 小时用于确认收盘数据、盘后新闻和媒体复盘，同时不受美国夏令时 / 冬令时切换影响。
 - **Date**：2026-08-30
 - **Impact**：所有日期判断、文件名和 H1 以新加坡日期为准；不得改用纽约时区。调度会跟随设备时区，如果设备以后离开 UTC+8，需要复核执行时刻。休市日仍执行，但不重复没有新交易产生的静态美股数据。
+- **Status**：Historical；固定调度已由 Decision 019 取消，但所有 report date 仍严格使用 Asia/Singapore。
 
 ### Decision 009 — 发布前采用 fail-closed 质量闸门并允许非关键数据降级
 
@@ -348,6 +352,13 @@ market-daily/
 - **Reason**：真实日报的生成端质量问题可能在同一天修复，失败草稿若永久占据 inbox 会阻断合法重试；同时，Validator 运行异常、读取失败或旧稿仍有效都不能被误当成“已拒绝”。
 - **Date**：2026-09-03
 - **Impact**：日常 App 和命令行继续共用 `import_chatgpt_daily.sh`，不新增人工删除步骤。新稿失败不改变旧稿；正式 Archive 已存在、旧稿有效或失败无法证明时继续 fail-closed。rejected 历史不进入 Git，序号碰撞只会选择下一个名称，永不覆盖已有审计记录。Validator、Normalizer、Extract 与 Importer 本身不变。
+
+### Decision 019 — 日报生成改为云端按需触发，本地只做确定性归档
+
+- **Decision**：停止每天自动生成日报。用户在手机或 Mac 的专用 ChatGPT Project 中输入 `生成今日市场日报` 时，云端才读取 GitHub `main/prompts/daily_market_report.md` 最新版本、按 Asia/Singapore 确定日期并联网研究；本地只消费这同一份结果，执行确定性归档、校验、构建和按需发布。
+- **Reason**：定时生成不再符合用户的实际使用方式；云端按需生成可在 Mac 关机时从手机或 Mac 发起，同时避免本地与云端重复研究、内容分叉和不必要的自动化复杂度。GitHub Master Prompt 继续作为唯一长期真源，Project Instructions 只保存最短 bootstrap，不复制日报规则。
+- **Date**：2026-09-04
+- **Impact**：本机 `Market Daily Archive 日报入库` 自动任务暂停但不删除；正式 `美股市场日报` 不再作为每日启用的生成路径；临时重跑任务与 GitHub Write Canary 保持结束 / disabled，Plan B 保持 disabled。Master Prompt 1.6 使用云端按需触发和 ChatGPT 平台原生可点击来源契约；Archive Validator 的标准 HTTPS Markdown 链接门槛不变。Clipboard Bridge 必须等待完整真实日报 pasteboard 样本证明可无歧义转换后另行实施，本阶段不实现。V2.3 不开始。
 
 ## 8. Project Maintenance Rules / 项目维护规则
 
@@ -437,7 +448,7 @@ market-daily/
 - V2.2 发布脚本已实现：严格构建、commit、push、远程 SHA 核对、Actions 等待和线上页面验证。
 - 入库器单元测试和现有日报幂等重跑验证已通过；V1 网站严格构建保持成功。
 - 自动入库架构与恢复方式已写入维护文档。
-- 正式任务已创建并处于 Active：`Market Daily Archive 日报入库`，每天跟随设备本地时钟 08:00、每周 7 天运行；当前与 08:00 SGT 相同。
+- 本机 `Market Daily Archive 日报入库` 历史任务保留但已暂停，不再每天自动生成日报。
 - Daily Market Report Master Prompt 已版本化保存于 `prompts/daily_market_report.md`。
 - 发布链路已增加 fail-closed 质量闸门，并用自动测试覆盖完整交易日、休市版、非关键数据暂缺及残缺报告拒绝。
 - 首次无人值守运行前的日报模板已正式定版：Master Prompt 升级至 1.1，Validator 与维护模板同步增加 30Y、DXY、Fed Rate Expectations、Russell 2000、文字风险状态和跨资产观察。
@@ -445,16 +456,16 @@ market-daily/
 - `2026-08-31` 首轮定时日报已完成入库、提交、push、远程 SHA、Actions 和 Pages 验证；执行中曾因沙盒认证访问受限而授权重试，不据此宣称全程无人介入已验收。
 - V2 支持“检查并补跑今日日报”：已有内容优先复用，按阶段恢复，并以相同 Validator、幂等和 fail-closed 规则控制发布；已完整发布返回无需补跑。独立恢复测试覆盖生成、部分入库、构建、推送与部署故障。
 - Master Prompt 1.2 已明确云端阅读 / 本地归档边界，保留 1.1 的全部指标、章节和来源标准；云端只在线读取 GitHub 最新文件，不运行本地链路。
-- 已通过原 ChatGPT 聊天的任务管理入口，将曾被改名的原云端任务恢复为「美股市场日报」并启用；回读确认日历时区明确为 Asia/Singapore，每天 08:00。默认时区元数据仍为 Asia/Shanghai，实际触发使用日历中显式指定的 Asia/Singapore；原通知和邮件偏好未改。没有新建任务，本地 heartbeat 保持原样。
+- 正式 ChatGPT `美股市场日报`（task ID `6a926a3bc8b08191b2716beb708e1c59`）已确认 `is_enabled: false`；保留的 schedule 为每天 09:15、`Asia/Shanghai`、`flexible_schedule`，不会再自动生成。任务已处于暂停状态，因此未重复修改。
 - Isolated GitHub write canary 已完成：ChatGPT Cloud 一次性任务产生完成记录，但隔离分支 SHA 未前进、目标文件为 404，方案 A 未通过且未触碰 main、Pages 或两个正式任务。
 - Plan B 仓库实现已完成：Responses API + Web Search 唯一生成器、runner 临时 staging、`generate-daily.yml`、既有 Validator/importer、strict build、受限提交、远程 SHA、Pages dispatch 与最终页面正文验证。
-- Master Prompt 升级至 1.5：保持交付中立的一次 canonical Markdown 规范，继续强制 `跨资产观察` 使用 `- `，并将 trading-day 至少 3 个来自实际研究、可访问目标的标准 HTTPS Markdown 来源链接设为生成前硬性自检；只有来源名称或标题而无 URL 不计数，无法取得真实链接时必须报告生成失败。
+- Master Prompt 升级至 1.6：生成改为云端按需触发，report date 仍按 Asia/Singapore；`trading_day` 必须含至少 3 个来自本次实际研究的可点击平台原生来源引用。生成端不再强制 Archive 专用 Markdown URL 表示，但本地 Validator 的标准 HTTPS Markdown 链接门槛不变。
 - 生成 workflow 已配置 `0 0 * * *`、固定 concurrency group 与八层 fail-closed Summary；真实手动验收前由 `MARKET_DAILY_CRON_ENABLED` 门控，不会直接接管每日生产。
 - 手动恢复口令在缺失日报时优先要求复用 ChatGPT 聊天中已有 Markdown；不自动 dispatch Plan B，也不在本地生成第二份日报。
-- 当前完整回归 98 项自动测试与 `mkdocs build --strict` 已通过；测试覆盖 ChatGPT 边界提取、白名单 Normalize、来源链接硬约束、Validator/Importer/恢复链路，以及本地 MkDocs 的正确页面复用、其他端口占用拒绝、启动就绪竞态、同源重定向约束和单实例行为。
+- 当前完整回归测试与 `mkdocs build --strict` 保持通过；测试覆盖 ChatGPT 边界提取、白名单 Normalize、生成端来源契约、Validator/Importer/恢复链路，以及本地 MkDocs 的正确页面复用、其他端口占用拒绝、启动就绪竞态、同源重定向约束和单实例行为。
 - 新增本地半自动入口 `scripts/import_chatgpt_daily.sh`：直接消费 ChatGPT 已生成的完整 Markdown，安全写入 gitignored inbox，复用 Validator 和 deterministic importer，并执行 strict build；不调用 AI/API、Git 或 GitHub。
 - 半自动入口的自动测试覆盖成功导入、空输入、同内容幂等、inbox/Archive 内容冲突、Validator fail-closed、日期不一致和构建失败。
-- Plan B 代码保留但不启用：不设置 `OPENAI_API_KEY`、不 dispatch Generate workflow，cron 门控保持关闭；两个现有任务均未修改或暂停。
+- Plan B 代码保留但不启用：不设置 `OPENAI_API_KEY`、不 dispatch Generate workflow，cron 门控保持关闭。
 - 已生成本机 `macos/归档今日日报.app`：读取剪贴板并调用既有入库脚本，成功时显示原生通知、失败时显示原生对话框，不打开 Terminal；源码、安装器和安全契约测试已纳入项目。
 - 首次点击发现 launcher 错将 macOS `test` 写为 `/usr/bin/test`。最终修复已完全移除冗余的 `test` 前置检查，固定 App 的 PATH、shell 与系统命令路径，记录 gitignored 的完整运行日志，并在安装后尽力刷新 Launch Services；重新编译后的 App 不包含任何 `test` 调用。
 - 第二次点击确认 App 的非交互 shell 未继承 Terminal 的 UTF-8 locale，导致 `pbpaste` 按非 UTF-8 编码输出中文。Launcher 已固定 `LANG/LC_ALL=en_US.UTF-8`、使用 `pbpaste -Prefer txt`，并优先提取 `Final result` 作为简短错误提示；编码失败停在 Input 层，没有运行 Validator 或修改 Archive。
@@ -466,23 +477,29 @@ market-daily/
 - 已生成 `macos/打开 Market Daily Archive.app`：Finder/Dock 启动时使用固定环境和已验证的 `.venv` 绝对路径，后台启动或复用本地 MkDocs，确认页面身份后打开默认浏览器。真实验收从关闭端口开始，首次启动 PID 52080，第二次仍为同一 PID，且监听数量始终为 1。
 - **Accepted**：`ChatGPT 复制回复 → 归档今日日报.app → Extract → Normalize → Validator → Import → MkDocs` 已通过真实日报与真实 App 使用验收。
 - **Accepted**：`打开 Market Daily Archive.app → 复用/启动单一本地 MkDocs → 验证页面身份 → 默认浏览器打开` 已通过真实双击与单实例验收。
-- 当前推荐日常操作固定为“复制回复 → 点击归档 App → 点击打开 Archive App”；进入稳定使用观察期，只记录并修复真实故障，不继续增加功能。
+- 当前推荐日常操作为“手机 / Mac 专用 ChatGPT Project 输入 `生成今日市场日报` → 云端生成 → 需要归档时在 Mac 复制回复 → 点击归档 App → 点击打开 Archive App”；进入稳定使用观察期。
 - **Accepted**：`2026-09-03` 真实日报先因 Sources 缺少 URL 被 Validator 拒绝；生成端按 Master Prompt 1.5 修复后，用户通过真实“复制回复 → 归档今日日报.app”完成安全恢复。旧失败稿保留在 rejected history，正式 Archive 只有一个版本且通过 Validator；普通同日内容冲突仍拒绝。
+- Decision 019 已确立云端按需生成与本地确定性归档边界；临时 `美股市场日报 临时重跑 20260904` 和 GitHub Write Canary 保持结束 / disabled，不删除历史。
+- 云端 ChatGPT Project `Market Daily Archive` 已由用户创建，最短 bootstrap instruction 已保存；首次 `生成今日市场日报` 的真实云端验收等待 Master Prompt 1.6 推送到 GitHub `main` 后执行。
 
 尚未完成：
 
-- Plan B 的真实 `workflow_dispatch` Generate → Verify 全链路不再是当前下一步；代码保留且 cron 未启用生产。
-- 尚未完成首次 GitHub Actions 08:00 SGT 无人值守入库与发布验收。
+- 专用 ChatGPT Project 已建立；首次按需生成真实云端验收尚待执行。
+- 完整日报的 clipboard bridge 尚未实现；必须先用真实完整日报验证 plain text 与 `public.html` 的引用数量、顺序、显示文字和 URL 可无歧义对应。
 - V2.3 月报未开始。
-- 两个旧任务仍保持原配置；ChatGPT 云端任务尚未切换到约 08:10 的 Archive-only 展示职责，本地每日入库任务也未暂停。
 
-下一步：进入稳定使用观察期，按当前推荐流程正常使用；只在出现真实故障时做必要修复，暂不继续增加功能。保持两个现有定时任务原样，不启用 Plan B，不设置 `OPENAI_API_KEY`，不开发 V2.3 月报。
+下一步：本次改动推送 GitHub `main` 后，用户在已建立的专用 ChatGPT Project 中输入 `生成今日市场日报`，验证云端读取 Master Prompt 1.6、按需生成且来源引用符合新契约。验收后再采集一份完整真实日报的 plain text + `public.html` 样本；只有证明引用能无歧义确定性转换时才考虑 Clipboard Bridge。继续不启用 Plan B、不设置 `OPENAI_API_KEY`、不开发 V2.3 月报。
 
-云端任务保持现状；本轮不调整其时间、Prompt 或职责。
-
-运行条件：当前一键入口需要 Mac、本地仓库、Python 3、MkDocs 和用户把完整聊天日报复制到剪贴板；App 可直接双击或拖入 Dock，不需要 Terminal、OpenAI API、GitHub 网络或凭证。Plan B 的历史运行条件保留在维护文档中，但当前不启用。
+运行条件：云端按需生成不依赖 Mac 开机；本地归档仍需要 Mac、本地仓库、Python 3、MkDocs 和用户把完整聊天日报复制到剪贴板。当前 App 尚不能把 ChatGPT 平台原生引用转换为 Validator 所需的 Markdown HTTPS 链接，因此 Clipboard Bridge 验收完成前，该表示差异仍会 fail-closed。App 不调用 OpenAI API 或联网补来源；Plan B 的历史实现保留但不启用。
 
 ## 10. Change Log
+
+### 2026-09-04
+
+- 采用 Decision 019：日报生成从 scheduled generation 改为专用 ChatGPT Project 中的 cloud on-demand generation。本机 `Market Daily Archive 日报入库` 任务已暂停但不删除；正式云端 `美股市场日报`（task ID `6a926a3bc8b08191b2716beb708e1c59`）确认已是 disabled，保留的 schedule 为每天 09:15、Asia/Shanghai；临时重跑任务和 GitHub Write Canary 保持结束 / disabled，Plan B 保持 disabled。
+- Master Prompt 升级至 1.6：移除固定 08:00 生成职责，按每次调用时的 Asia/Singapore 日期生成；`trading_day` 强制至少 3 个来自本次实际研究的可点击平台原生来源引用，禁止只有来源名称、猜测 URL 或伪造引用。Archive Validator 仍要求标准 HTTPS Markdown 链接，未作放宽。
+- 专用 ChatGPT Project 的 bootstrap 只负责读取 GitHub `main/prompts/daily_market_report.md` 最新版本并严格执行，读取或版本确认失败即停止，不保存 Master Prompt 副本。Clipboard Bridge 延后至完整真实日报 pasteboard 映射可被无歧义证明后再决定是否实现；Current Status 保持 Stable Use Observation，V2.3 未开始。
+- 用户已建立云端 ChatGPT Project `Market Daily Archive` 并保存 bootstrap instruction；首次按需生成真实云端验收安排在 Prompt 1.6 推送到 GitHub `main` 之后。
 
 ### 2026-09-03
 

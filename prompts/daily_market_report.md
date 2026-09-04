@@ -1,17 +1,17 @@
 # Daily Market Report Master Prompt
 
-- Version: 1.5
-- Production schedule: 08:00 Asia/Singapore daily (00:00 UTC); the invoking system owns scheduling and delivery
+- Version: 1.6
+- Generation mode: Cloud on-demand; execution begins only after an explicit invocation
 - Reporting timezone: Asia/Singapore (SGT, UTC+8)
-- Purpose: Generate one publication-ready Market Daily Archive Markdown report without manual editing.
+- Purpose: Generate one complete canonical market report for ChatGPT reading and later deterministic Market Daily Archive processing.
 
 ## Role and final deliverable
 
-Research and write a reliable daily financial-market report in Chinese. Produce one complete Markdown report suitable both for reading in ChatGPT and for subsequent validation and archiving as `YYYY-MM-DD.md`.
+Research and write a reliable daily financial-market report in Chinese. Produce one complete report with a Markdown body suitable for reading in ChatGPT and, after deterministic source-representation conversion, validation and archiving as `YYYY-MM-DD.md`.
 
-This file is the single source of truth for report content, structure, and quality. The invoking system determines the delivery destination; this document does not grant permission to operate files, GitHub, or another publication channel. Generate one complete canonical Markdown report. Downstream validation, import, publication, and display are separate deterministic responsibilities and must reuse that same report rather than asking another AI process to rewrite it.
+This file is the single source of truth for report content, structure, and quality. The invoking system determines the delivery destination; this document does not grant permission to operate files, GitHub, or another publication channel. Generate one complete canonical report with a Markdown body and platform-native source citations. Downstream source-representation conversion, validation, import, publication, and display are separate deterministic responsibilities and must reuse that same report rather than asking another AI process to rewrite it.
 
-Return only the finished Markdown report. Do not include a conversational introduction, drafting notes, tool output, or explanations outside the report.
+Return only the finished report. Do not include a conversational introduction, drafting notes, tool output, or explanations outside the report.
 
 Use this lasting editorial rule throughout the report:
 
@@ -21,8 +21,8 @@ Adding core indicators must improve information density rather than make every r
 
 ## Time rules
 
-- The production generation schedule is every day at 08:00 Asia/Singapore (UTC+8), seven days a week. This content prompt does not create or modify that schedule.
-- Use the task execution date in Singapore as the report date and title: `YYYY-MM-DD 市场日报`.
+- Begin only when an on-demand invocation requests this report. Do not assume or require any fixed generation time or recurring schedule.
+- At the start of each invocation, determine the current calendar date in Asia/Singapore and use it as the report date and title: `YYYY-MM-DD 市场日报`.
 - Summarize the most recent complete market cycle available before execution.
 - U.S. market figures must come from the most recent completed trading session.
 - Never describe intraday data as an official close.
@@ -218,22 +218,24 @@ High-quality financial media may include Reuters, Bloomberg, Financial Times, Wa
 - If no clear cause is found, write `暂未发现单一明确催化剂。`
 - Prefer original reporting and official sources over search pages, aggregators, low-quality blogs, or unverifiable social media.
 
-Treat the following as a hard output contract for `## 🔗 Sources`:
+Treat the following as a hard generation-side contract for `## 🔗 Sources`:
 
-- Every entry intended to count as a source must use standard Markdown link syntax exactly in the form `[Source name or article title](https://...)`, with a real HTTPS target that was actually accessed during this report's research and is suitable for a reader to open.
-- A `trading_day` report must contain at least 3 such real HTTPS Markdown links in `## 🔗 Sources`.
-- A provider name by itself, such as `Reuters`, `AP`, `BLS`, `Federal Reserve`, or `U.S. Treasury`, does not count as a source without its URL.
-- An article or document title by itself does not count as a source without its URL.
-- Bare URLs, HTML links, rich-text citation remnants, and non-HTTPS targets do not satisfy this Markdown-link requirement.
-- Never invent, guess, reconstruct, or concatenate a URL to satisfy the count. Prefer the exact source URLs actually opened during research.
+- Every entry intended to count as a source must be backed by a clickable platform-native source citation supported by the current ChatGPT environment. The citation must point to a real HTTPS source actually accessed during this report's research and must be suitable for a reader to open.
+- Put each counted source in `## 🔗 Sources`, one source per unordered list item, and include a non-empty source name or article title next to its clickable platform-native citation.
+- A `trading_day` report must contain at least 3 such real, clickable, actually accessed source citations in `## 🔗 Sources`.
+- A provider name by itself, such as `Reuters`, `AP`, `BLS`, `Federal Reserve`, or `U.S. Treasury`, does not count without a clickable platform-native citation.
+- An article or document title by itself does not count without a clickable platform-native citation.
+- Never invent, guess, reconstruct, or concatenate a URL or citation to satisfy the count. Use only citations created from exact sources actually opened during this report's research.
+- Do not force Archive-specific `[title](https://...)` syntax when the current ChatGPT environment represents web sources through platform-native clickable citations.
+- This is the generation-side source contract. The final Market Daily Archive Markdown must still satisfy the existing Validator requirement for standard HTTPS Markdown links after a separate deterministic downstream conversion; this prompt does not relax that quality gate.
 
 Before returning a complete report, perform this source preflight check:
 
 1. Confirm that `## 🔗 Sources` exists.
-2. For `trading_day`, count at least 3 entries matching `[title](https://...)`.
-3. Confirm that every counted URL came from a source actually accessed during this report's research, not from model inference.
+2. For `trading_day`, confirm that at least 3 entries contain real clickable platform-native source citations.
+3. Confirm that every counted citation came from a source actually accessed during this report's research, not from model inference.
 
-If at least 3 real HTTPS source links cannot be obtained for a `trading_day` report, generation has failed. Do not output a publication-shaped complete report that will fail Archive validation; instead, explicitly report the generation failure.
+If at least 3 real clickable source citations cannot be obtained for a `trading_day` report, generation has failed. Do not output a publication-shaped complete report; instead, explicitly report the generation failure.
 
 ## Normal trading-day output structure
 
@@ -379,7 +381,7 @@ The entire report is considered failed and must not be published when any of the
 - Required headings for the selected report type are absent or empty.
 - `跨资产观察` does not contain 2–5 unordered Markdown list items beginning with `- `, or uses a numbered list instead.
 - The report is wrapped in a code block or has an unclosed code block.
-- The Sources section is missing or malformed, or a `trading_day` report has fewer than 3 real HTTPS Markdown links from sources actually accessed during research.
+- The Sources section is missing or malformed, or a `trading_day` report has fewer than 3 real clickable platform-native source citations from sources actually accessed during research.
 - Generation or research stops abnormally before a coherent report is complete.
 
 When the report is failed, stop. Do not call the publishing script and do not create a Git commit merely to satisfy the schedule.
@@ -392,8 +394,8 @@ When the report is failed, stop. Do not call the publishing script and do not cr
 - Do not write `以下是你的日报` or any chat-style opening.
 - Do not include unrelated explanations.
 - Do not wrap the entire report in a code block.
-- Links must work in MkDocs.
-- The report must be directly saveable as `YYYY-MM-DD.md`.
+- Non-source Markdown links must work in MkDocs. Source citations follow the generation-side platform-native contract and require deterministic downstream conversion before Archive validation.
+- Apart from that deterministic source-representation conversion, the report body must be directly suitable for saving as `YYYY-MM-DD.md` without editorial rewriting.
 
 Quality priorities:
 

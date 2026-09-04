@@ -37,7 +37,7 @@ mkdocs build --strict
 
 ## V2 自动入库
 
-正式日报生成规则保存在唯一真源 [`prompts/daily_market_report.md`](prompts/daily_market_report.md)。当前推荐最低复杂度流程是：ChatGPT 只生成一次完整 Markdown，然后使用下方 Mac 一键 App。需要诊断时仍可运行命令行备用入口：
+正式日报生成规则保存在唯一真源 [`prompts/daily_market_report.md`](prompts/daily_market_report.md)。当前推荐最低复杂度流程是：在手机或 Mac 的专用 ChatGPT Project 中输入 `生成今日市场日报`，云端读取 GitHub 最新 Master Prompt 并只生成一次；需要归档时复制同一份回复，再使用下方 Mac 一键 App。需要诊断时仍可运行命令行备用入口：
 
 ```bash
 pbpaste | ./scripts/import_chatgpt_daily.sh
@@ -59,7 +59,9 @@ macos/归档今日日报.app
 
 两个 App 都是本机生成文件，不进入 Git，统一位于 `macos/`。需要重建时运行一次 `./scripts/install_macos_launcher.sh`；日常使用不需要运行安装命令。
 
-GitHub Actions + OpenAI API 的 Plan B 代码继续保留，但 cron 保持门控且未启用。两个 Mac App 与真实“复制回复”归档链路均已验收，项目进入稳定使用观察期；现有定时任务保持原样，不修改或暂停。
+GitHub Actions + OpenAI API 的 Plan B 代码继续保留，但 cron 保持门控且未启用。本机入库定时任务已暂停，正式 ChatGPT 日报任务也处于 disabled；日报只在专用 ChatGPT Project 中按需生成。两个 Mac App 与真实“复制回复”归档链路均已验收，项目继续处于稳定使用观察期。
+
+Master Prompt 1.6 的生成端 Sources 使用 ChatGPT 平台原生可点击引用；本地 Archive Validator 仍要求标准 HTTPS Markdown 链接。Clipboard Bridge 尚未实现，必须先用完整真实日报证明纯文本与 HTML 引用能够无歧义对应，当前不会猜测或联网补链接。
 
 发布前先执行 fail-closed 完整性校验：
 
